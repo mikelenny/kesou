@@ -5,7 +5,7 @@
  *   - 页面导航：网络优先，断网时用缓存
  *   - CDN 兜底资源：stale-while-revalidate（首次联网后即可离线）
  */
-const VERSION = 'kesou-v1.0.0';
+const VERSION = 'kesou-v1.0.2';
 const CORE_CACHE = 'kesou-core-' + VERSION;
 const RUNTIME_CACHE = 'kesou-runtime-' + VERSION;
 
@@ -26,7 +26,6 @@ const CORE_ASSETS = [
 /* 常用中日韩 CMap（PDF 中文字体需要） */
 const CMAPS = [
   'Adobe-GB1-UCS2', 'Adobe-CNS1-UCS2', 'Adobe-Japan1-UCS2', 'Adobe-Korea1-UCS2',
-  'Identity-H', 'Identity-V',
   'UniGB-UCS2-H', 'UniGB-UCS2-V', 'UniGB-UTF16-H', 'UniGB-UTF16-V', 'UniGB-UTF8-H', 'UniGB-UTF8-V',
   'UniCNS-UCS2-H', 'UniCNS-UCS2-V', 'UniCNS-UTF16-H', 'UniCNS-UTF16-V', 'UniCNS-UTF8-H', 'UniCNS-UTF8-V',
   'UniJIS-UCS2-H', 'UniJIS-UCS2-V', 'UniJIS-UTF16-H', 'UniJIS-UTF16-V', 'UniJIS-UTF8-H', 'UniJIS-UTF8-V',

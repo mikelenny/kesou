@@ -517,20 +517,44 @@ mark {
   padding-right:8px;
 }
 
+/* ================= 首次加载提示 ================= */
+body.boot-loading{overflow:hidden}
+#bootOverlay{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,#f8faf8 0%,#e8f5e9 100%);
+  transition:opacity .35s ease,visibility .35s ease;
+}
+#bootOverlay.hide{opacity:0;visibility:hidden;pointer-events:none}
+.boot-card{
+  width:min(86vw,280px);padding:28px 24px 22px;text-align:center;
+  background:rgba(255,255,255,.72);border:1px solid rgba(46,125,50,.12);
+  border-radius:20px;box-shadow:0 16px 40px rgba(27,94,32,.10);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+}
+.boot-logo{
+  width:62px;height:62px;margin:0 auto 10px;border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#2E7D32,#1B5E20);color:#fff;
+  font-size:30px;font-weight:700;box-shadow:0 6px 18px rgba(46,125,50,.28);
+}
+.boot-name{font-size:21px;font-weight:700;color:#1B5E20;letter-spacing:3px}
+.boot-spinner{
+  width:26px;height:26px;margin:16px auto 10px;border-radius:50%;
+  border:3px solid #c8e6c9;border-top-color:#2E7D32;
+  animation:bootSpin .8s linear infinite;
+}
+@keyframes bootSpin{to{transform:rotate(360deg)}}
+.boot-status{min-height:20px;font-size:13px;color:#475569}
+.boot-bar{width:164px;height:4px;margin:13px auto 9px;border-radius:999px;background:#dcedc8;overflow:hidden}
+.boot-bar i{display:block;width:42%;height:100%;border-radius:inherit;background:#2E7D32;animation:bootSlide 1.15s ease-in-out infinite}
+@keyframes bootSlide{0%{transform:translateX(-110%)}100%{transform:translateX(350%)}}
+.boot-tip{max-width:220px;margin:0 auto;font-size:11.5px;line-height:1.55;color:#94a3b8}
+
 /* ================= PWA / 安全区 ================= */
 .top-bar{ padding-top:env(safe-area-inset-top, 0px); }
 .list{ padding-bottom:calc(60px + env(safe-area-inset-bottom, 0px)); }
 #pdfList{ padding-bottom:calc(60px + env(safe-area-inset-bottom, 0px)); }
-
-/* ================= 搜索提交按钮 ================= */
-.go-btn{
-  height:28px;padding:0 11px;border-radius:7px;border:none;
-  background:#fff;color:#2E7D32;font-size:12.5px;font-weight:700;
-  font-family:inherit;cursor:pointer;flex-shrink:0;line-height:1;
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 1px 3px rgba(0,0,0,.15);
-}
-.go-btn:active{transform:scale(.94)}
 
 /* ================= 文档 chip + 关闭按钮 ================= */
 .chip{
@@ -579,7 +603,18 @@ mark {
 #importBtn,#installBtn,#clearBtn{vertical-align:middle}
 </style>
 </head>
-<body>
+<body class="boot-loading">
+
+<div id="bootOverlay" role="status" aria-live="polite">
+  <div class="boot-card">
+    <div class="boot-logo" aria-hidden="true">可</div>
+    <div class="boot-name">可搜</div>
+    <div class="boot-spinner" aria-hidden="true"></div>
+    <div class="boot-status" id="bootStatus">正在加载页面资源…</div>
+    <div class="boot-bar" aria-hidden="true"><i></i></div>
+    <div class="boot-tip">首次打开会稍慢，加载完成后再显示界面</div>
+  </div>
+</div>
 
 <div class="top-bar">
 	<div class="title-row">
@@ -595,7 +630,6 @@ mark {
 	<button class="nav-btn" id="nextBtn" disabled title="下一个匹配（↓ / Enter）">↓</button>
 	<button class="nav-btn" id="prevPageBtn" disabled title="上一页（←）">↑↑</button>
 	<button class="nav-btn" id="nextPageBtn" disabled title="下一页（→）">↓↓</button>
-	<button class="go-btn" id="goBtn" type="button" title="搜索并跳到第一个匹配（Enter）">搜</button>
 	<button class="nav-btn" id="zoomOutBtn" title="缩小" style="display:none">−</button>
 	<button class="nav-btn" id="zoomInBtn" title="放大" style="display:none">＋</button>
     <div class="search-area" id="searchArea"></div>
@@ -1940,6 +1974,10 @@ if('onscrollend' in window){
 }
 let matchCards = [];            // 当前可导航的元素（卡片 或 PDF span）
 let matchIndex = -1;
+let livePreviewTimer = null;
+let livePreviewToken = 0;
+const MIN_ZOOM = 0.4;
+const MAX_ZOOM = 4;
 let showEquations = false;
 
 /* PDF/TXT 状态 */
@@ -2554,15 +2592,16 @@ function makeCondInput(val, idx){
   inp.placeholder = '关键词';
   inp.title = '输入完成后按 Enter 搜索 / 跳到下一个；↑ 上一个；← → 上一页 / 下一页';
   inp.value = val || '';
-  // ★ 只改草稿：输入时绝不搜索、绝不跳转；等 Enter / 搜按钮 / 方向键 / 导航按钮
+  // ★ 只改草稿：输入时绝不搜索、绝不跳转；等 Enter / 方向键 / 导航按钮
   inp.oninput = ()=>{
     draftConditions[idx] = inp.value;
-    if(hintEl) hintEl.textContent = '按 Enter 或点「搜」开始搜索';
+    if(hintEl) hintEl.textContent = '按 Enter 开始搜索';
     // 关键词被清空时，顺手清掉旧高亮（只重绘，不跳转）
     if(inp.value.trim() === '' && conditions.some(c => (c || '').trim() !== '')){
       commitDraft();
     }
     updateNavBtns();
+    scheduleLiveAllCounts();
   };
 
   if(idx > 0){
@@ -2572,6 +2611,7 @@ function makeCondInput(val, idx){
     op.onclick = ()=>{
       draftCondLogic[idx-1] = draftCondLogic[idx-1]==='or'?'and':'or';
       renderCondArea();
+      scheduleLiveAllCounts();
     };
     wrap.appendChild(op);
   }
@@ -2586,6 +2626,7 @@ function makeCondInput(val, idx){
       draftConditions.splice(idx,1);
       draftCondLogic.splice(idx-1,1);
       renderCondArea();
+      scheduleLiveAllCounts();
     };
     wrap.appendChild(del);
   }
@@ -2606,6 +2647,7 @@ function renderCondArea(){
     draftConditions.push('');
     draftCondLogic.push('and');
     renderCondArea();
+    scheduleLiveAllCounts();
   };
   searchArea.appendChild(add);
   if(window.__syncTopSpacer) setTimeout(window.__syncTopSpacer, 0);
@@ -3225,6 +3267,7 @@ function renderAll(){
     ...Object.entries(EQ_DATA).map(([book, rawGroups])=>({name:book, groups:rawGroups}))
   ];
 
+  let eqPart = 0;
   allEq.forEach(item=>{
     let count = 0;
     if(item.isConfuse){
@@ -3236,6 +3279,7 @@ function renderAll(){
       });
     }
     if(hasKeyword && count === 0) return;   // 有关键词时过滤掉无匹配的
+    eqPart += count;
 
     const card = document.createElement('div');
     card.className = 'card';
@@ -3264,11 +3308,12 @@ function renderAll(){
   // ========== 状态栏 ==========
   let bookPart = 0;
   bookMap.forEach(c => bookPart += c);
-  const bookLabel = bookMap.size > 0 ? `教材 ${bookMap.size} 本（${bookPart} 页） + ` : '';
   if(hasKeyword){
-    countEl.textContent = `${bookLabel}共 ${matchCards.length} 处匹配`;
+    // 教材匹配数 + 公式匹配数；不要用 matchCards.length（那是卡片数）
+    countEl.textContent = `共 ${bookPart + eqPart} 处匹配`;
     hintEl.textContent = '已按关键词过滤';
   } else {
+    const bookLabel = bookMap.size > 0 ? `教材 ${bookMap.size} 本（${bookPart} 页） + ` : '';
     countEl.textContent = `${bookLabel}公式速查`;
     hintEl.textContent = '教材优先 · 公式在后';
   }
@@ -3278,6 +3323,81 @@ function renderAll(){
   matchIndex = -1;
   updateNavBtns();
 }
+
+/* ==================== “全部”视图：输入时实时更新各卡片匹配数 ==================== */
+/* 只做预览：临时用草稿条件重算列表，再恢复已提交条件；不会滚动或跳转。 */
+function isAllView(){
+  return !showEquations && eqSubject === '' && currentBooks.size === 0;
+}
+
+function captureAllPreviewAnchor(){
+  const topBarH = document.querySelector('.top-bar').offsetHeight;
+  const cards = listEl.querySelectorAll('.card');
+  for(const c of cards){
+    const r = c.getBoundingClientRect();
+    if(r.bottom > topBarH + 10){
+      return {
+        bookName: c.dataset.bookName || '',
+        eqName: c.dataset.eqName || '',
+        cardText: (c.querySelector('.card-title')?.textContent || '').trim(),
+        offset: r.top - topBarH,
+        scrollY: window.scrollY
+      };
+    }
+  }
+  return { scrollY: window.scrollY };
+}
+
+function restoreAllPreviewAnchor(anchor){
+  if(!anchor) return;
+  const topBarH = document.querySelector('.top-bar').offsetHeight;
+  if(anchor.bookName || anchor.eqName || anchor.cardText){
+    for(const c of listEl.querySelectorAll('.card')){
+      const title = (c.querySelector('.card-title')?.textContent || '').trim();
+      const same = (anchor.bookName && c.dataset.bookName === anchor.bookName) ||
+                   (anchor.eqName && c.dataset.eqName === anchor.eqName) ||
+                   (!anchor.bookName && !anchor.eqName && anchor.cardText && title === anchor.cardText);
+      if(same){
+        const r = c.getBoundingClientRect();
+        const top = r.top + window.scrollY - topBarH - (anchor.offset || 0);
+        window.scrollTo({top: Math.max(0, top), behavior: 'auto'});
+        return;
+      }
+    }
+  }
+  if(typeof anchor.scrollY === 'number'){
+    window.scrollTo({top: Math.max(0, anchor.scrollY), behavior: 'auto'});
+  }
+}
+
+function scheduleLiveAllCounts(){
+  const token = ++livePreviewToken;
+  if(livePreviewTimer) clearTimeout(livePreviewTimer);
+  livePreviewTimer = setTimeout(()=>{
+    livePreviewTimer = null;
+    if(token !== livePreviewToken) return;
+    if(!draftHasChanges() || !isAllView()) return;
+    if(!listEl || listEl.style.display === 'none') return;
+
+    const savedConditions = conditions;
+    const savedLogic = condLogic;
+    const anchor = captureAllPreviewAnchor();
+    try{
+      conditions = draftConditions.slice();
+      condLogic = draftCondLogic.slice();
+      renderAll();
+    }catch(err){
+      console.warn('实时更新匹配数失败：', err);
+    }finally{
+      conditions = savedConditions;
+      condLogic = savedLogic;
+    }
+    if(token === livePreviewToken) restoreAllPreviewAnchor(anchor);
+    // 预览时临时条件会让 draftHasChanges() 变成 false，恢复后重新同步导航按钮
+    updateNavBtns();
+  }, 180);
+}
+
 function highlightSvgText(container, entries){
   const texts = container.querySelectorAll('text');
   texts.forEach(t => {
@@ -3440,10 +3560,12 @@ function render(){
   // 2) 无历史位置：
   if(hasKw){
     if(matchCards.length > 0){
-      matchIndex = 0;
       if(suppressAutoJump){
-        highlightCardNoScroll();   // 只标记不滚动，由 handleNav 决定最终跳到哪
+        // 刚提交新关键词：保留 highlightPdfMatches 选中的“当前页”位置
+        if(matchIndex < 0 || matchIndex >= matchCards.length) matchIndex = 0;
+        highlightCardNoScroll();
       } else {
+        matchIndex = 0;
         highlightCard();
       }
       if(bookName) saveBookPosition(bookName);
@@ -3823,12 +3945,19 @@ function updateNavBtns(){
 
   const hasMatch = matchCards.length > 0;
   const draftDirty = draftHasChanges();
+  if(draftDirty){
+    // 关键词有改动时，四个导航键都先提交再按新结果跳转
+    prev.disabled = false;
+    next.disabled = false;
+    if(prevPage) prevPage.disabled = false;
+    if(nextPage) nextPage.disabled = false;
+    return;
+  }
   if(!hasMatch){
-    // 关键词有改动时也允许点导航（会先提交再跳）
-    prev.disabled = !draftDirty;
-    next.disabled = !draftDirty;
-    if(prevPage) prevPage.disabled = !draftDirty;
-    if(nextPage) nextPage.disabled = !draftDirty;
+    prev.disabled = true;
+    next.disabled = true;
+    if(prevPage) prevPage.disabled = true;
+    if(nextPage) nextPage.disabled = true;
     return;
   }
 
@@ -3894,10 +4023,6 @@ document.getElementById('nextBtn').onclick = ()=>handleNav(1);
 /* ↑↑ / ↓↓：按"页"跳（跳到上一页/下一页有匹配的页，并定位到该页第一个/最后一个匹配） */
 document.getElementById('prevPageBtn').onclick = ()=>handlePageNav(-1);
 document.getElementById('nextPageBtn').onclick = ()=>handlePageNav(1);
-/* 「搜」按钮：提交并跳到第一个匹配 */
-const goBtnEl = document.getElementById('goBtn');
-if(goBtnEl) goBtnEl.onclick = ()=>handleNav(1);
-
 /* ==================== 键盘热键 ====================
    Enter / ↓ = 下一个匹配
    ↑         = 上一个匹配
@@ -3992,17 +4117,62 @@ function commitDraft(){
   return changed;
 }
 
+/* 记录提交新关键词前的页面锚点：新搜索从当前页开始 */
+function capturePageSearchAnchor(){
+  if(!pdfList || pdfList.style.display === 'none') return null;
+  const pages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
+    .filter(p=>p.style.display !== 'none');
+  if(!pages.length) return null;
+  const page = getCurrentVisiblePage();
+  return { page, pageIndex: page ? pages.indexOf(page) : -1 };
+}
+
+/* 在重新生成的 matchCards 里，找当前页（或之后/之前）的第一个匹配 */
+function matchIndexFromPageAnchor(anchor, dir){
+  if(!matchCards.length) return -1;
+  if(anchor){
+    const pages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
+      .filter(p=>p.style.display !== 'none');
+    let base = -1;
+    if(anchor.page && anchor.page.isConnected) base = pages.indexOf(anchor.page);
+    if(base < 0) base = anchor.pageIndex;
+    if(base >= 0){
+      if(dir > 0){
+        // ↓ / Enter：从当前页的第一个匹配开始；当前页没有就往后找
+        for(let i=0;i<matchCards.length;i++){
+          const pi = pages.indexOf(pageOfMatch(matchCards[i]));
+          if(pi >= base) return i;
+        }
+      } else {
+        // ↑：从当前页的最后一个匹配开始；当前页没有就往前找
+        for(let i=matchCards.length-1;i>=0;i--){
+          const pi = pages.indexOf(pageOfMatch(matchCards[i]));
+          if(pi >= 0 && pi <= base) return i;
+        }
+      }
+    }
+  }
+  return dir > 0 ? 0 : matchCards.length - 1;
+}
+
+/* 提交草稿并把首次跳转锚定在“当前页”，而不是固定回到第 1 页 */
+function jumpToDraftAnchor(dir){
+  const anchor = capturePageSearchAnchor();
+  commitDraft();
+  if(matchCards.length > 0){
+    let idx = matchIndexFromPageAnchor(anchor, dir);
+    if(idx < 0) idx = dir > 0 ? 0 : matchCards.length - 1;
+    matchIndex = idx;
+    highlightCard();
+    const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
+    if(bn) saveBookPosition(bn);
+  }
+}
+
 /* ★ 导航按钮统一入口：先提交（如果需要），再跳转 */
 function handleNav(dir){
   if(draftHasChanges()){
-    commitDraft();
-    // 提交完后决定跳到哪端
-    if(matchCards.length > 0){
-      matchIndex = dir > 0 ? 0 : matchCards.length - 1;
-      highlightCard();
-      const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
-      if(bn) saveBookPosition(bn);
-    }
+    jumpToDraftAnchor(dir);
     return;
   }
   jumpByMatch(dir);
@@ -4011,13 +4181,7 @@ function handleNav(dir){
 /* ← / →：先提交草稿，再按页跳转 */
 function handlePageNav(dir){
   if(draftHasChanges()){
-    commitDraft();
-    if(matchCards.length > 0){
-      matchIndex = dir > 0 ? 0 : matchCards.length - 1;
-      highlightCard();
-      const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
-      if(bn) saveBookPosition(bn);
-    }
+    jumpToDraftAnchor(dir);
     return;
   }
   jumpByPage(dir);
@@ -4174,13 +4338,20 @@ function jumpByPage(dir){
 /* 当前视口中第一个可见的页面（跳过顶栏遮挡） */
 function getCurrentVisiblePage(){
   const topBarH = document.querySelector('.top-bar').offsetHeight;
+  const vh = window.innerHeight;
   const pages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
     .filter(p => p.style.display !== 'none');
+  let best = null, bestVisible = 0;
   for(const p of pages){
     const r = p.getBoundingClientRect();
-    if(r.bottom > topBarH + 10) return p;
+    // 取页面在“顶栏以下、视口以内”的可见高度；上一页露出的几像素不算当前页
+    const visible = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, topBarH));
+    if(visible > bestVisible){
+      bestVisible = visible;
+      best = p;
+    }
   }
-  return pages[0] || null;
+  return best || pages[pages.length - 1] || null;
 }
 
 /* 只做视觉标记，不滚动 */
@@ -4424,8 +4595,8 @@ svgOverlay.onclick = ()=> svgOverlay.classList.remove('show');
 const gZoomInBtn  = document.getElementById('zoomInBtn');
 const gZoomOutBtn = document.getElementById('zoomOutBtn');
 function updateZoomBtns(){
-  if(gZoomInBtn) gZoomInBtn.disabled = pdfZoom >= 4;
-  if(gZoomOutBtn) gZoomOutBtn.disabled = pdfZoom <= 1.0;
+  if(gZoomInBtn) gZoomInBtn.disabled = pdfZoom >= MAX_ZOOM;
+  if(gZoomOutBtn) gZoomOutBtn.disabled = pdfZoom <= MIN_ZOOM;
 }
 /* ==================== 状态 ==================== */
 let conditions      = [''];   // ★ 已提交的搜索条件（必须有）
@@ -4458,6 +4629,99 @@ function getSubjectOfKey(key){
   const fileStatus = document.getElementById('fileStatus');
   const importMask = document.getElementById('importMask');
   const importMaskText = document.getElementById('importMaskText');
+
+  /* ---- 记住上次导入位置（Chromium 桌面端 best-effort） ----
+     浏览器不允许网页读写完整路径；这里把上次选择的 FileSystemFileHandle
+     存进 IndexedDB，下次用 showOpenFilePicker({startIn}) 从它所在目录打开。
+     Safari / iOS / Firefox / 安卓 Chrome 不支持时，自动回退到普通 <input type=file>，
+     此时由系统文件选择器自己决定是否记住上次目录。 */
+  const PICKER_DB = 'kesou-prefs';
+  const PICKER_STORE = 'handles';
+  const PICKER_KEY = 'lastImport';
+  let lastPickerHandle = null;
+
+  function openPickerDB(){
+    return new Promise((resolve, reject)=>{
+      if(!('indexedDB' in window)) return reject(new Error('IndexedDB 不可用'));
+      const req = indexedDB.open(PICKER_DB, 1);
+      req.onupgradeneeded = ()=>{
+        const db = req.result;
+        if(!db.objectStoreNames.contains(PICKER_STORE)){
+          db.createObjectStore(PICKER_STORE);
+        }
+      };
+      req.onsuccess = ()=>resolve(req.result);
+      req.onerror = ()=>reject(req.error || new Error('IndexedDB 打开失败'));
+    });
+  }
+  function loadLastPickerHandle(){
+    return openPickerDB().then(db=>new Promise(resolve=>{
+      const tx = db.transaction(PICKER_STORE, 'readonly');
+      const rq = tx.objectStore(PICKER_STORE).get(PICKER_KEY);
+      rq.onsuccess = ()=>resolve(rq.result || null);
+      rq.onerror = ()=>resolve(null);
+      tx.oncomplete = ()=>{ try{ db.close(); }catch(e){} };
+    })).catch(()=>null);
+  }
+  function saveLastPickerHandle(handle){
+    return openPickerDB().then(db=>new Promise((resolve, reject)=>{
+      const tx = db.transaction(PICKER_STORE, 'readwrite');
+      tx.objectStore(PICKER_STORE).put(handle, PICKER_KEY);
+      tx.oncomplete = ()=>{ try{ db.close(); }catch(e){}; resolve(); };
+      tx.onerror = ()=>{ try{ db.close(); }catch(e){}; reject(tx.error); };
+    })).catch(()=>{});
+  }
+  loadLastPickerHandle().then(handle=>{
+    lastPickerHandle = handle;
+  }).catch(()=>{});
+
+  const PICKER_TYPES = [
+    {description:'PDF', accept:{'application/pdf':['.pdf']}},
+    {description:'Word / 文本', accept:{
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document':['.docx'],
+      'application/msword':['.doc'],
+      'application/rtf':['.rtf'],
+      'application/epub+zip':['.epub'],
+      'application/vnd.oasis.opendocument.text':['.odt'],
+      'text/plain':['.txt','.md','.markdown','.csv','.tsv','.json','.log'],
+      'text/html':['.html','.htm']
+    }},
+    {description:'Excel', accept:{
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
+      'application/vnd.ms-excel':['.xls'],
+      'application/vnd.ms-excel.sheet.binary.macroEnabled.12':['.xlsb'],
+      'application/vnd.oasis.opendocument.spreadsheet':['.ods']
+    }},
+    {description:'PPT', accept:{
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation':['.pptx'],
+      'application/vnd.ms-powerpoint':['.ppt']
+    }},
+    {description:'图片', accept:{'image/*':['.png','.jpg','.jpeg','.gif','.webp','.bmp','.svg','.avif','.ico','.tif','.tiff']}}
+  ];
+
+  async function pickWithFileSystemAccess(){
+    const opts = {
+      id: 'kesou-import',
+      multiple: true,
+      types: PICKER_TYPES
+    };
+    if(lastPickerHandle) opts.startIn = lastPickerHandle;
+    try{
+      return await window.showOpenFilePicker(opts);
+    }catch(err){
+      if(err && err.name === 'AbortError') throw err;
+      // 上次的文件被移动/删除，或目录权限失效：去掉 startIn 再试一次
+      if(opts.startIn){
+        delete opts.startIn;
+        return await window.showOpenFilePicker(opts);
+      }
+      throw err;
+    }
+  }
+
+  if(typeof window.showOpenFilePicker === 'function'){
+    importBtn.title = '导入文件（支持多选，会记住上次位置）';
+  }
 
   /* 已导入文件去重表：key = 文件名 + 大小 */
   const importedFiles = new Set();
@@ -4583,7 +4847,36 @@ function getSubjectOfKey(key){
   }
   window.__closeBook = closeBook;
 
-  importBtn.addEventListener('click', ()=> fileInput.click());
+  importBtn.addEventListener('click', async ()=>{
+    if(typeof window.showOpenFilePicker === 'function'){
+      try{
+        const handles = await pickWithFileSystemAccess();
+        if(!handles || !handles.length) return;
+
+        // 记住最后一个文件；下次 startIn 会从它所在目录打开
+        const lastHandle = handles[handles.length - 1];
+        if(lastHandle){
+          lastPickerHandle = lastHandle;
+          saveLastPickerHandle(lastHandle);
+        }
+
+        for(const handle of handles){
+          try{
+            const file = await handle.getFile();
+            await handleImport(file);
+          }catch(err){
+            if(err && err.name === 'AbortError') return;
+            console.warn('读取所选文件失败：', err);
+          }
+        }
+        return;
+      }catch(err){
+        if(err && err.name === 'AbortError') return;
+        console.warn('文件选择器不可用，回退到普通选择：', err);
+      }
+    }
+    fileInput.click();
+  });
   /* ---- 清除导入 ---- */
   const clearBtn = document.getElementById('clearBtn');
   if(clearBtn){
@@ -4664,7 +4957,7 @@ function getSubjectOfKey(key){
     if(!target) return;
 
     const oldZoom = pdfZoom;
-    const targetZoom = Math.max(1.0, Math.min(4, +(+newZoom).toFixed(2)));
+    const targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, +(+newZoom).toFixed(2)));
     if(Math.abs(targetZoom - oldZoom) < 0.001) return;
 
     const vw = document.documentElement.clientWidth;
@@ -4741,7 +5034,7 @@ document.addEventListener('touchmove', e=>{
     );
     const rawRatio = dist / pinchStart;
     const dampedRatio = 1 + (rawRatio - 1) * 0.45;
-    pinchPendingZoom = Math.max(1.0, Math.min(4, pinchBaseZoom * dampedRatio));
+    pinchPendingZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchBaseZoom * dampedRatio));
     pinchPendingCx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
     pinchPendingCy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
     if(!pinchRafId) pinchRafId = requestAnimationFrame(flushPinchZoom);
@@ -5683,6 +5976,67 @@ render();
       });
     });
   }
+})();
+
+/* ==================== 首次加载遮罩：页面/字体/离线缓存就绪后再显示 ==================== */
+(function(){
+  const overlay = document.getElementById('bootOverlay');
+  const statusEl = document.getElementById('bootStatus');
+  if(!overlay) return;
+
+  document.body.classList.add('boot-loading');
+  const wait = ms => new Promise(resolve=>setTimeout(resolve, ms));
+  const setStatus = text => { if(statusEl) statusEl.textContent = text; };
+
+  function waitForLoad(){
+    if(document.readyState === 'complete') return Promise.resolve();
+    return new Promise(resolve=>window.addEventListener('load', resolve, {once:true}));
+  }
+
+  async function boot(){
+    let swSlow = false;
+    try{
+      setStatus('正在加载页面资源…');
+      // 资源很慢时也不无限卡住；20 秒后先放行
+      await Promise.race([waitForLoad(), wait(20000)]);
+
+      setStatus('正在准备字体…');
+      if(document.fonts && document.fonts.ready){
+        await Promise.race([document.fonts.ready.catch(()=>{}), wait(3000)]);
+      }
+
+      if('serviceWorker' in navigator && location.protocol !== 'file:'){
+        setStatus('正在准备离线缓存…');
+        try{
+          const reg = await Promise.race([
+            navigator.serviceWorker.getRegistration(),
+            wait(1200).then(()=>null)
+          ]);
+          if(!reg) setStatus('正在注册离线缓存…');
+
+          const ready = await Promise.race([
+            navigator.serviceWorker.ready.then(()=>true).catch(()=>true),
+            wait(15000).then(()=>false)
+          ]);
+          if(!ready){
+            swSlow = true;
+            setStatus('离线缓存将在后台继续…');
+          }
+        }catch(e){}
+      }
+
+      if(!swSlow) setStatus('准备就绪');
+      await wait(180);
+    }catch(err){
+      console.warn('首次加载提示：', err);
+    }finally{
+      overlay.classList.add('hide');
+      document.body.classList.remove('boot-loading');
+      setTimeout(()=>{ if(overlay.parentNode) overlay.remove(); }, 500);
+    }
+  }
+
+  boot();
 })();
 </script>
 
