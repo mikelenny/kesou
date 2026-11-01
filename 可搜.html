@@ -1101,17 +1101,56 @@ const SYNONYM_GROUPS = [
   ['三氧化硫', 'SO3', 'SO₃'],
   ['二氧化氮', 'NO2', 'NO₂'],
   ['一氧化氮', 'NO'],
+  ['胆矾', '蓝矾', '五水硫酸铜', 'CuSO4·5H2O', 'CuSO₄·5H₂O'],
+  ['绿矾', '七水硫酸亚铁', 'FeSO4·7H2O', 'FeSO₄·7H₂O'],
+  ['明矾', '钾明矾', 'KAl(SO4)2·12H2O', 'KAl(SO₄)₂·12H₂O'],
+  ['芒硝', '十水硫酸钠', 'Na2SO4·10H2O', 'Na₂SO₄·10H₂O'],
+  ['石膏', '生石膏', 'CaSO4·2H2O', 'CaSO₄·2H₂O'],
+  ['熟石膏', '烧石膏', '2CaSO4·H2O', '2CaSO₄·H₂O'],
+  ['重晶石', 'BaSO4', 'BaSO₄'],
+  ['铁红', 'Fe2O3', 'Fe₂O₃'],
+  ['磁性氧化铁', 'Fe3O4', 'Fe₃O₄'],
+  ['铁锈', 'Fe2O3·xH2O', 'Fe₂O₃·xH₂O'],
+  ['刚玉', 'Al2O3', 'Al₂O₃'],
+  ['金刚砂', '碳化硅', 'SiC'],
+  ['水玻璃', '泡花碱', 'Na2SiO3', 'Na₂SiO₃'],
+  ['石英', '水晶', '玛瑙', 'SiO2', 'SiO₂'],
+  ['硫磺', '硫黄'],
+  ['硝石', 'KNO3', 'KNO₃'],
+  ['电石', '碳化钙', 'CaC2', 'CaC₂'],
+  ['干冰', 'CO2', 'CO₂'],
+  ['石灰石', '大理石', 'CaCO3', 'CaCO₃'],
+  ['漂白粉', 'Ca(ClO)2', 'Ca(ClO)₂', 'CaCl2', 'CaCl₂'],
+  ['84消毒液', '次氯酸钠', 'NaClO'],
+  ['天然气', '沼气', '甲烷', 'CH4', 'CH₄'],
+  ['尿素', 'CO(NH2)2', 'CO(NH₂)₂'],
+  ['硫酸铵', '(NH4)2SO4', '(NH₄)₂SO₄'],
+  ['硝酸铵', 'NH4NO3', 'NH₄NO₃'],
+  ['碳酸氢铵', 'NH4HCO3', 'NH₄HCO₃'],
+  ['液氨', 'NH3', 'NH₃'],
+  ['氨水', 'NH3·H2O', 'NH₃·H₂O'],
+  ['软脂酸', '棕榈酸', 'C15H31COOH', 'C₁₅H₃₁COOH'],
+  ['石炭酸', '苯酚', 'C6H5OH', 'C₆H₅OH', 'C6H6O', 'C₆H₆O'],
+  ['福尔马林', '甲醛', 'HCHO', 'CH2O', 'CH₂O'],
+  ['酒精', '乙醇', 'C2H5OH', 'C₂H₅OH', 'C2H6O', 'C₂H₆O', 'CH3CH2OH', 'CH₃CH₂OH'],
+  ['电石气', '乙炔', 'C2H2', 'C₂H₂', 'CH≡CH'],
+  ['特氟龙', '聚四氟乙烯', 'PTFE'],
+  ['电木', '酚醛树脂'],
+  ['有机玻璃', 'PMMA', '聚甲基丙烯酸甲酯'],
+  ['涤纶', 'PET', '聚对苯二甲酸乙二醇酯'],
+  ['尼龙-66', '尼龙66', '聚己二酰己二胺'],
+  ['水垢', 'CaCO3', 'CaCO₃', 'Mg(OH)2', 'Mg(OH)₂'],
 ];
 
 const SYNONYM_MAP = new Map();
 SYNONYM_GROUPS.forEach(group => {
   group.forEach(word => {
-    const lower = word.toLowerCase();
+    const lower = normalizeWidth(word).toLowerCase();
     if(!SYNONYM_MAP.has(lower)){
       SYNONYM_MAP.set(lower, new Set());
     }
     group.forEach(w => {
-      const wLower = w.toLowerCase();
+      const wLower = normalizeWidth(w).toLowerCase();
       if(wLower !== lower){
         SYNONYM_MAP.get(lower).add(wLower);
       }
@@ -1121,20 +1160,80 @@ SYNONYM_GROUPS.forEach(group => {
 
 /* ==================== 方程式数据（按教材版块分类） ==================== */
 const EQ_CONFUSE = [
-  {t:"① 钠与氧气：常温 vs 点燃", c:"常温：4Na + O₂ = 2Na₂O\n点燃：2Na + O₂ =点燃= Na₂O₂", note:"必修一"},
-  {t:"② 钠与水 vs 钠与乙醇", c:"钠与水（必修一）：2Na + 2H₂O = 2NaOH + H₂↑\n钠与乙醇（必修二）：2CH₃CH₂OH + 2Na → 2CH₃CH₂ONa + H₂↑", note:"必修一 / 必修二", i:"钠与水：2Na + 2H₂O = 2Na⁺ + 2OH⁻ + H₂↑"},
-  {t:"③ 铁与盐酸 vs 铁与硫酸铜", c:"Fe + 2HCl = FeCl₂ + H₂↑\nFe + CuSO₄ = FeSO₄ + Cu", note:"必修一", i:"Fe + 2H⁺ = Fe²⁺ + H₂↑\nFe + Cu²⁺ = Fe²⁺ + Cu"},
-  {t:"④ 铜与硝酸：稀 vs 浓", c:"稀：3Cu + 8HNO₃(稀) = 3Cu(NO₃)₂ + 2NO↑ + 4H₂O\n浓：Cu + 4HNO₃(浓) = Cu(NO₃)₂ + 2NO₂↑ + 2H₂O", note:"必修二", i:"稀：3Cu + 8H⁺ + 2NO₃⁻ = 3Cu²⁺ + 2NO↑ + 4H₂O\n浓：Cu + 4H⁺ + 2NO₃⁻ = Cu²⁺ + 2NO₂↑ + 2H₂O"},
-  {t:"⑤ CO₂ / SO₂ 与 NaOH：少量 vs 过量", c:"CO₂少量：CO₂ + 2NaOH = Na₂CO₃ + H₂O\nCO₂过量：CO₂ + NaOH = NaHCO₃\nSO₂少量：SO₂ + 2NaOH = Na₂SO₃ + H₂O\nSO₂过量：SO₂ + NaOH = NaHSO₃", note:"必修一 / 必修二"},
-  {t:"⑥ 铝盐与 NaOH：少量 vs 过量", c:"NaOH少量：Al³⁺ + 3OH⁻ = Al(OH)₃↓\nNaOH过量：Al³⁺ + 4OH⁻ = AlO₂⁻ + 2H₂O", note:"必修一", i:"同左"},
-  {t:"⑦ Na₂CO₃ vs NaHCO₃ 与盐酸", c:"Na₂CO₃ + 2HCl = 2NaCl + H₂O + CO₂↑\nNaHCO₃ + HCl = NaCl + H₂O + CO₂↑", note:"必修一", i:"CO₃²⁻ + 2H⁺ = H₂O + CO₂↑\nHCO₃⁻ + H⁺ = H₂O + CO₂↑"},
-  {t:"⑧ 铁离子的检验：KSCN（选必二） vs 与铁反应（必修一）", c:"Fe³⁺ + 3SCN⁻ ⇌ Fe(SCN)₃（血红色）\n2Fe³⁺ + Fe = 3Fe²⁺", note:"必修一 / 选必二"},
-  {t:"⑨ 苯酚与NaOH vs 苯酚钠与CO₂", c:"C₆H₅OH + NaOH → C₆H₅ONa + H₂O\nC₆H₅ONa + CO₂ + H₂O → C₆H₅OH + NaHCO₃", note:"选必三", i:"说明苯酚酸性弱于碳酸"},
-  {t:"⑩ 电解CuCl₂ vs 电解饱和食盐水", c:"CuCl₂ =电解= Cu + Cl₂↑\n2NaCl + 2H₂O =电解= 2NaOH + H₂↑ + Cl₂↑", note:"选必一"},
-  {t:"⑪ 银镜反应：乙醛 vs 甲醛", c:"CH₃CHO + 2Ag(NH₃)₂OH =Δ= CH₃COONH₄ + 2Ag↓ + 3NH₃ + H₂O\nHCHO + 4Ag(NH₃)₂OH =Δ= (NH₄)₂CO₃ + 4Ag↓ + 6NH₃ + 2H₂O", note:"选必三"},
-  {t:"⑫ 乙酸乙酯水解：酸性 vs 碱性", c:"酸性：CH₃COOC₂H₅ + H₂O ⇌ CH₃COOH + C₂H₅OH\n碱性：CH₃COOC₂H₅ + NaOH =Δ= CH₃COONa + C₂H₅OH", note:"必修二/选必三"},
-  {t:"⑬ 铁与氯气 vs 铁与硫", c:"2Fe + 3Cl₂ =点燃= 2FeCl₃（Fe为+3价）\nFe + S =Δ= FeS（Fe为+2价）", note:"必修一"},
-  {t:"⑭ 乙醇消去：170℃ vs 140℃", c:"170℃：CH₃CH₂OH =浓硫酸/170℃= CH₂=CH₂↑ + H₂O\n140℃：2CH₃CH₂OH =浓硫酸/140℃= CH₃CH₂OCH₂CH₃ + H₂O", note:"选必三"},
+  {t:"1. 钠与氧气：常温 vs 点燃", c:"常温：4Na + O₂ = 2Na₂O\n点燃：2Na + O₂ =点燃= Na₂O₂", note:"必修一"},
+  {t:"2. 钠与水 vs 钠与乙醇", c:"钠与水（必修一）：2Na + 2H₂O = 2NaOH + H₂↑\n钠与乙醇（必修二）：2CH₃CH₂OH + 2Na → 2CH₃CH₂ONa + H₂↑", note:"必修一 / 必修二", i:"钠与水：2Na + 2H₂O = 2Na⁺ + 2OH⁻ + H₂↑"},
+  {t:"3. 钠与盐酸 vs 钠与硫酸铜溶液", c:"钠与盐酸：2Na + 2HCl = 2NaCl + H₂↑\n钠与硫酸铜溶液：2Na + 2H₂O + CuSO₄ = Cu(OH)₂↓ + Na₂SO₄ + H₂↑", note:"必修一", i:"钠先与水反应，不能置换出铜"},
+  {t:"4. 铁与盐酸 vs 铁与硫酸铜", c:"Fe + 2HCl = FeCl₂ + H₂↑\nFe + CuSO₄ = FeSO₄ + Cu", note:"必修一", i:"Fe + 2H⁺ = Fe²⁺ + H₂↑\nFe + Cu²⁺ = Fe²⁺ + Cu"},
+  {t:"5. 铁与氯气 vs 铁与硫", c:"2Fe + 3Cl₂ =点燃= 2FeCl₃（Fe 为 +3 价）\nFe + S =Δ= FeS（Fe 为 +2 价）", note:"必修一", i:"氯气氧化性强，硫氧化性弱"},
+  {t:"6. 铁与水蒸气 vs 铁与氧气", c:"3Fe + 4H₂O(g) =高温= Fe₃O₄ + 4H₂↑\n3Fe + 2O₂ =点燃= Fe₃O₄", note:"必修一"},
+  {t:"7. 铜与硝酸：稀 vs 浓", c:"稀：3Cu + 8HNO₃(稀) = 3Cu(NO₃)₂ + 2NO↑ + 4H₂O\n浓：Cu + 4HNO₃(浓) = Cu(NO₃)₂ + 2NO₂↑ + 2H₂O", note:"必修二", i:"稀：3Cu + 8H⁺ + 2NO₃⁻ = 3Cu²⁺ + 2NO↑ + 4H₂O\n浓：Cu + 4H⁺ + 2NO₃⁻ = Cu²⁺ + 2NO₂↑ + 2H₂O"},
+  {t:"8. 铜与浓硫酸 vs 铜与稀硫酸", c:"Cu + 2H₂SO₄(浓) =Δ= CuSO₄ + SO₂↑ + 2H₂O\n稀硫酸与铜不反应（铜在氢后，且稀硫酸无强氧化性）", note:"必修二"},
+  {t:"9. 铝与盐酸 vs 铝与氢氧化钠", c:"2Al + 6HCl = 2AlCl₃ + 3H₂↑\n2Al + 2NaOH + 2H₂O = 2NaAlO₂ + 3H₂↑", note:"必修一", i:"铝既能与酸反应，又能与强碱反应"},
+  {t:"10. 氧化铝的两性", c:"Al₂O₃ + 6HCl = 2AlCl₃ + 3H₂O\nAl₂O₃ + 2NaOH = 2NaAlO₂ + H₂O", note:"必修一"},
+  {t:"11. 氢氧化铝与强酸 vs 强碱", c:"Al(OH)₃ + 3HCl = AlCl₃ + 3H₂O\nAl(OH)₃ + NaOH = NaAlO₂ + 2H₂O", note:"必修一", i:"Al(OH)₃ + 3H⁺ = Al³⁺ + 3H₂O\nAl(OH)₃ + OH⁻ = AlO₂⁻ + 2H₂O"},
+  {t:"12. 铝盐与氨水 vs 铝盐与 NaOH", c:"氨水：Al³⁺ + 3NH₃·H₂O = Al(OH)₃↓ + 3NH₄⁺（沉淀不溶解）\nNaOH 过量：Al³⁺ + 4OH⁻ = AlO₂⁻ + 2H₂O（沉淀溶解）", note:"必修一"},
+  {t:"13. 偏铝酸钠与盐酸：少量 vs 过量", c:"盐酸少量：NaAlO₂ + HCl + H₂O = Al(OH)₃↓ + NaCl\n盐酸过量：NaAlO₂ + 4HCl = AlCl₃ + NaCl + 2H₂O", note:"必修一", i:"少量：AlO₂⁻ + H⁺ + H₂O = Al(OH)₃↓\n过量：AlO₂⁻ + 4H⁺ = Al³⁺ + 2H₂O"},
+  {t:"14. CO₂ / SO₂ 与 NaOH：少量 vs 过量", c:"CO₂少量：CO₂ + 2NaOH = Na₂CO₃ + H₂O\nCO₂过量：CO₂ + NaOH = NaHCO₃\nSO₂少量：SO₂ + 2NaOH = Na₂SO₃ + H₂O\nSO₂过量：SO₂ + NaOH = NaHSO₃", note:"必修一 / 必修二"},
+  {t:"15. Na₂CO₃ vs NaHCO₃ 与盐酸", c:"Na₂CO₃ + 2HCl = 2NaCl + H₂O + CO₂↑\nNaHCO₃ + HCl = NaCl + H₂O + CO₂↑", note:"必修一", i:"CO₃²⁻ + 2H⁺ = H₂O + CO₂↑\nHCO₃⁻ + H⁺ = H₂O + CO₂↑"},
+  {t:"16. 碳酸钠与盐酸：滴加顺序不同", c:"向 Na₂CO₃ 中滴加盐酸：先 CO₃²⁻ + H⁺ = HCO₃⁻，后 HCO₃⁻ + H⁺ = H₂O + CO₂↑\n向盐酸中滴加 Na₂CO₃：立即产生 CO₂", note:"必修一", i:"前者开始无气泡，后者立即有气泡"},
+  {t:"17. 碳酸氢钠 vs 碳酸钠受热", c:"2NaHCO₃ =Δ= Na₂CO₃ + H₂O + CO₂↑\nNa₂CO₃ 受热不分解", note:"必修一"},
+  {t:"18. 过氧化钠与水 vs 过氧化钠与二氧化碳", c:"2Na₂O₂ + 2H₂O = 4NaOH + O₂↑\n2Na₂O₂ + 2CO₂ = 2Na₂CO₃ + O₂", note:"必修一", i:"均为歧化反应，Na₂O₂ 既是氧化剂又是还原剂"},
+  {t:"19. 过氧化钠与盐酸", c:"2Na₂O₂ + 4HCl = 4NaCl + O₂↑ + 2H₂O", note:"必修一", i:"不是简单的碱性氧化物与酸反应"},
+  {t:"20. 氯气与水 vs 氯气与氢氧化钠", c:"Cl₂ + H₂O ⇌ HCl + HClO\nCl₂ + 2NaOH = NaCl + NaClO + H₂O", note:"必修一", i:"氯气与水反应可逆，与碱反应完全"},
+  {t:"21. 氯气与铁 vs 氯气与铜", c:"2Fe + 3Cl₂ =点燃= 2FeCl₃\nCu + Cl₂ =点燃= CuCl₂", note:"必修一", i:"氯气将变价金属氧化到高价"},
+  {t:"22. 次氯酸见光分解", c:"2HClO =光照= 2HCl + O₂↑", note:"必修一", i:"久置氯水酸性增强，漂白性减弱"},
+  {t:"23. 实验室制氯气：浓盐酸 vs 稀盐酸", c:"MnO₂ + 4HCl(浓) =Δ= MnCl₂ + Cl₂↑ + 2H₂O\n稀盐酸与 MnO₂ 不反应", note:"必修一", i:"需用浓盐酸并加热"},
+  {t:"24. 二氧化硫与氯水", c:"SO₂ + Cl₂ + 2H₂O = H₂SO₄ + 2HCl", note:"必修一 / 必修二", i:"SO₂ 表现还原性，使氯水褪色"},
+  {t:"25. 浓硫酸的脱水性 vs 氧化性", c:"脱水性：C₁₂H₂₂O₁₁ =浓硫酸= 12C + 11H₂O\n氧化性：C + 2H₂SO₄(浓) =Δ= CO₂↑ + 2SO₂↑ + 2H₂O", note:"必修二"},
+  {t:"26. 氮气与氧气 vs 氨的催化氧化", c:"N₂ + O₂ =放电= 2NO\n4NH₃ + 5O₂ =催化剂/Δ= 4NO + 6H₂O", note:"必修二"},
+  {t:"27. 一氧化氮与氧气 vs 二氧化氮与水", c:"2NO + O₂ = 2NO₂\n3NO₂ + H₂O = 2HNO₃ + NO", note:"必修二", i:"工业制硝酸的关键两步"},
+  {t:"28. 工业合成氨 vs 实验室制氨", c:"工业：N₂ + 3H₂ ⇌ 2NH₃（高温、高压、催化剂）\n实验室：2NH₄Cl + Ca(OH)₂ =Δ= CaCl₂ + 2NH₃↑ + 2H₂O", note:"必修二"},
+  {t:"29. 铵盐受热分解：NH₄Cl vs NH₄HCO₃", c:"NH₄Cl =Δ= NH₃↑ + HCl↑（遇冷重新化合）\nNH₄HCO₃ =Δ= NH₃↑ + H₂O + CO₂↑", note:"必修二"},
+  {t:"30. 硝酸铵受热分解", c:"NH₄NO₃ =Δ= N₂O↑ + 2H₂O", note:"必修二", i:"高温或受撞击可能发生爆炸性分解"},
+  {t:"31. 氨气与水 vs 氨气与盐酸", c:"NH₃ + H₂O ⇌ NH₃·H₂O ⇌ NH₄⁺ + OH⁻\nNH₃ + HCl = NH₄Cl（产生白烟）", note:"必修二"},
+  {t:"32. 硅与氢氧化钠 vs 二氧化硅与氢氧化钠", c:"Si + 2NaOH + H₂O = Na₂SiO₃ + 2H₂↑\nSiO₂ + 2NaOH = Na₂SiO₃ + H₂O", note:"必修二", i:"硅与碱反应放出氢气，二氧化硅不与碱反应放出气体"},
+  {t:"33. 二氧化硅与氢氟酸", c:"SiO₂ + 4HF = SiF₄↑ + 2H₂O", note:"必修二", i:"氢氟酸能腐蚀玻璃，用于雕刻玻璃"},
+  {t:"34. 硅酸钠与二氧化碳", c:"Na₂SiO₃ + CO₂ + H₂O = H₂SiO₃↓ + Na₂CO₃", note:"必修二", i:"碳酸酸性强于硅酸"},
+  {t:"35. 硅酸受热分解", c:"H₂SiO₃ =Δ= SiO₂ + H₂O", note:"必修二"},
+  {t:"36. 钠与二氧化碳 vs 镁与二氧化碳", c:"4Na + 3CO₂ = 2Na₂CO₃ + C\n2Mg + CO₂ =点燃= 2MgO + C", note:"必修一 / 必修二", i:"镁能在 CO₂ 中燃烧，钠也能被 CO₂ 氧化"},
+  {t:"37. 镁与氮气", c:"3Mg + N₂ =点燃= Mg₃N₂", note:"必修一", i:"镁在空气中燃烧产物含 MgO、Mg₃N₂ 和 C"},
+  {t:"38. 电解水 vs 电解饱和食盐水 vs 电解熔融氯化钠", c:"2H₂O =电解= 2H₂↑ + O₂↑\n2NaCl + 2H₂O =电解= 2NaOH + H₂↑ + Cl₂↑\n2NaCl(熔融) =电解= 2Na + Cl₂↑", note:"必修一 / 选必一"},
+  {t:"39. 电解精炼铜 vs 电镀铜", c:"电解精炼：粗铜作阳极，纯铜作阴极，CuSO₄ 溶液为电解液\n电镀：镀层金属作阳极，待镀件作阴极，含镀层金属离子的溶液为电解液", note:"选必一", i:"两者阴极反应均为 Cu²⁺ + 2e⁻ = Cu"},
+  {t:"40. 原电池 vs 电解池", c:"锌铜原电池：负极 Zn - 2e⁻ = Zn²⁺，正极 2H⁺ + 2e⁻ = H₂↑\n电解 CuCl₂：阳极 2Cl⁻ - 2e⁻ = Cl₂↑，阴极 Cu²⁺ + 2e⁻ = Cu", note:"必修二 / 选必一", i:"原电池将化学能转化为电能，电解池将电能转化为化学能"},
+  {t:"41. 钢铁析氢腐蚀 vs 吸氧腐蚀", c:"析氢腐蚀（酸性较强）：负极 Fe - 2e⁻ = Fe²⁺，正极 2H⁺ + 2e⁻ = H₂↑\n吸氧腐蚀（中性或弱酸性）：负极 2Fe - 4e⁻ = 2Fe²⁺，正极 O₂ + 2H₂O + 4e⁻ = 4OH⁻", note:"选必一"},
+  {t:"42. 铁的吸氧腐蚀后续反应", c:"4Fe(OH)₂ + O₂ + 2H₂O = 4Fe(OH)₃\n2Fe(OH)₃ = Fe₂O₃·xH₂O + (3-x)H₂O", note:"选必一", i:"最终生成铁锈"},
+  {t:"43. 甲烷取代 vs 乙烯加成", c:"CH₄ + Cl₂ =光照= CH₃Cl + HCl（取代，逐步进行）\nCH₂=CH₂ + Br₂ → CH₂BrCH₂Br（加成，使溴水褪色）", note:"必修二"},
+  {t:"44. 乙烯与溴水 vs 乙炔与溴水", c:"CH₂=CH₂ + Br₂ → CH₂BrCH₂Br\nCH≡CH + 2Br₂ → CHBr₂CHBr₂", note:"必修二", i:"乙炔可发生两步加成"},
+  {t:"45. 苯的溴代 vs 苯的硝化", c:"C₆H₆ + Br₂ =FeBr₃= C₆H₅Br + HBr\nC₆H₆ + HNO₃ =浓硫酸/Δ= C₆H₅NO₂ + H₂O", note:"必修二", i:"均为取代反应，需催化剂"},
+  {t:"46. 苯与氢气 vs 环己烯与氢气", c:"C₆H₆ + 3H₂ =Ni/Δ= C₆H₁₂\nC₆H₁₀ + H₂ =Ni/Δ= C₆H₁₂", note:"必修二", i:"苯加氢需更剧烈条件"},
+  {t:"47. 甲苯氧化 vs 苯氧化", c:"C₆H₅CH₃ + 3[O] =酸性KMnO₄= C₆H₅COOH + H₂O\n苯不能被酸性 KMnO₄ 氧化", note:"必修二", i:"苯环侧链有 α-H 时易被氧化"},
+  {t:"48. 乙醇催化氧化 vs 乙醇燃烧", c:"2CH₃CH₂OH + O₂ =Cu/Δ= 2CH₃CHO + 2H₂O\nC₂H₅OH + 3O₂ =点燃= 2CO₂ + 3H₂O", note:"必修二"},
+  {t:"49. 乙醛与新制氢氧化铜 vs 银镜反应", c:"CH₃CHO + 2Cu(OH)₂ + NaOH =Δ= CH₃COONa + Cu₂O↓ + 3H₂O\nCH₃CHO + 2Ag(NH₃)₂OH =Δ= CH₃COONH₄ + 2Ag↓ + 3NH₃ + H₂O", note:"选必三"},
+  {t:"50. 乙酸与碳酸钠 vs 乙酸与碳酸氢钠", c:"2CH₃COOH + Na₂CO₃ = 2CH₃COONa + H₂O + CO₂↑\nCH₃COOH + NaHCO₃ = CH₃COONa + H₂O + CO₂↑", note:"必修二", i:"乙酸酸性强于碳酸"},
+  {t:"51. 酯化反应 vs 酯的水解", c:"酯化：CH₃COOH + C₂H₅OH ⇌ CH₃COOC₂H₅ + H₂O（浓硫酸，Δ）\n酸性水解：CH₃COOC₂H₅ + H₂O ⇌ CH₃COOH + C₂H₅OH\n碱性水解：CH₃COOC₂H₅ + NaOH =Δ= CH₃COONa + C₂H₅OH", note:"必修二 / 选必三"},
+  {t:"52. 葡萄糖 vs 果糖的银镜反应", c:"葡萄糖：CH₂OH(CHOH)₄CHO + 2Ag(NH₃)₂OH =Δ= CH₂OH(CHOH)₄COONH₄ + 2Ag↓ + 3NH₃ + H₂O\n果糖在碱性条件下异构化，也能发生银镜反应", note:"选必三"},
+  {t:"53. 蔗糖水解 vs 麦芽糖水解", c:"蔗糖：C₁₂H₂₂O₁₁ + H₂O =H+/Δ= C₆H₁₂O₆(葡萄糖) + C₆H₁₂O₆(果糖)\n麦芽糖：C₁₂H₂₂O₁₁ + H₂O =H+/Δ= 2C₆H₁₂O₆(葡萄糖)", note:"选必三"},
+  {t:"54. 淀粉 vs 纤维素水解", c:"(C₆H₁₀O₅)n + nH₂O =H+/Δ= nC₆H₁₂O₆\n纤维素与淀粉通式相同，水解最终产物均为葡萄糖", note:"选必三"},
+  {t:"55. 蛋白质盐析 vs 变性", c:"盐析：加入浓盐溶液，蛋白质溶解度降低而析出，可逆\n变性：加热、强酸强碱、重金属盐等使空间结构破坏，不可逆", note:"选必三", i:"盐析不改变蛋白质活性，变性使其失去生理活性"},
+  {t:"56. 氨基酸缩合", c:"H₂N—CH₂—COOH + H₂N—CH₂—COOH → H₂N—CH₂—CO—NH—CH₂—COOH + H₂O", note:"选必三", i:"形成肽键 —CO—NH—"},
+  {t:"57. 油脂皂化 vs 油脂氢化", c:"皂化：(C₁₇H₃₅COO)₃C₃H₅ + 3NaOH =Δ= 3C₁₇H₃₅COONa + C₃H₅(OH)₃\n氢化：(C₁₇H₃₃COO)₃C₃H₅ + 3H₂ =Ni/Δ= (C₁₇H₃₅COO)₃C₃H₅", note:"选必三"},
+  {t:"58. 苯酚与溴水 vs 苯酚与浓硝酸", c:"C₆H₅OH + 3Br₂ → C₆H₂Br₃OH↓ + 3HBr\nC₆H₅OH + 3HNO₃ =浓硫酸= C₆H₂(NO₂)₃OH↓ + 3H₂O", note:"选必三", i:"均为苯环上的取代反应"},
+  {t:"59. 苯酚钠与盐酸 vs 苯酚钠与二氧化碳", c:"C₆H₅ONa + HCl = C₆H₅OH + NaCl\nC₆H₅ONa + CO₂ + H₂O = C₆H₅OH + NaHCO₃", note:"选必三", i:"说明苯酚酸性弱于碳酸，但强于碳酸氢根"},
+  {t:"60. 乙烯加聚 vs 丙烯加聚", c:"nCH₂=CH₂ =催化剂= —[CH₂—CH₂]ₙ—\nnCH₂=CHCH₃ =催化剂= —[CH₂—CH(CH₃)]ₙ—", note:"必修二 / 选必三"},
+  {t:"61. 异戊二烯加聚", c:"nCH₂=C(CH₃)CH=CH₂ =催化剂= —[CH₂—C(CH₃)=CH—CH₂]ₙ—", note:"选必三", i:"1,4-加聚得到顺丁橡胶类结构"},
+  {t:"62. 乳酸缩聚", c:"nHOCH(CH₃)COOH =催化剂= H—[OCH(CH₃)CO]ₙ—OH + (n-1)H₂O", note:"选必三", i:"分子内同时含 —OH 和 —COOH，可发生缩聚"},
+  {t:"63. 燃烧热 vs 中和热", c:"燃烧热：C(s) + O₂(g) = CO₂(g)  ΔH = -393.5 kJ/mol\n中和热：H⁺(aq) + OH⁻(aq) = H₂O(l)  ΔH = -57.3 kJ/mol", note:"选必一", i:"燃烧热以 1 mol 可燃物为标准，中和热以生成 1 mol H₂O 为标准"},
+  {t:"64. 弱电解质电离 vs 盐类水解", c:"电离：CH₃COOH ⇌ CH₃COO⁻ + H⁺\n水解：CH₃COO⁻ + H₂O ⇌ CH₃COOH + OH⁻", note:"选必一", i:"两者互为逆过程，程度通常都很小"},
+  {t:"65. 沉淀溶解平衡与 Ksp", c:"AgCl(s) ⇌ Ag⁺(aq) + Cl⁻(aq)\nKsp(AgCl) = c(Ag⁺)·c(Cl⁻)", note:"选必一"},
+  {t:"66. 沉淀转化", c:"AgCl(s) + I⁻(aq) ⇌ AgI(s) + Cl⁻(aq)", note:"选必一", i:"Ksp(AgI) < Ksp(AgCl)，沉淀向更难溶方向转化"},
+  {t:"67. 锅炉除垢", c:"CaSO₄(s) + Na₂CO₃(aq) ⇌ CaCO₃(s) + Na₂SO₄(aq)", note:"选必一", i:"将难溶的 CaSO₄ 转化为更难溶且易被酸溶解的 CaCO₃"},
+  {t:"68. 硬水软化（加热法）", c:"Ca(HCO₃)₂ =Δ= CaCO₃↓ + H₂O + CO₂↑\nMg(HCO₃)₂ =Δ= MgCO₃↓ + H₂O + CO₂↑", note:"必修一", i:"暂时硬水可通过加热软化"},
+  {t:"69. 明矾净水", c:"Al³⁺ + 3H₂O ⇌ Al(OH)₃(胶体) + 3H⁺", note:"必修一", i:"Al(OH)₃ 胶体吸附悬浮杂质"},
+  {t:"70. 氢氧化铁胶体的制备", c:"FeCl₃ + 3H₂O =Δ= Fe(OH)₃(胶体) + 3HCl", note:"必修一", i:"向沸水中滴加饱和 FeCl₃ 溶液，继续煮沸至红褐色"},
+  {t:"71. 氯化铁与铜 vs 氯化亚铁与氯气", c:"2FeCl₃ + Cu = 2FeCl₂ + CuCl₂\n2FeCl₂ + Cl₂ = 2FeCl₃", note:"必修一", i:"Fe³⁺ 氧化性较强，Fe²⁺ 易被氧化"},
+  {t:"72. 酸性高锰酸钾与草酸", c:"2MnO₄⁻ + 5H₂C₂O₄ + 6H⁺ = 2Mn²⁺ + 10CO₂↑ + 8H₂O", note:"选必一", i:"紫红色褪去，可用于滴定分析"},
+  {t:"73. 硫代硫酸钠与酸", c:"Na₂S₂O₃ + H₂SO₄ = Na₂SO₄ + S↓ + SO₂↑ + H₂O", note:"选必一", i:"产生淡黄色沉淀和刺激性气味气体"},
+  {t:"74. 双氧水分解", c:"2H₂O₂ =MnO₂= 2H₂O + O₂↑", note:"必修一", i:"MnO₂ 作催化剂，H₂O₂ 既是氧化剂又是还原剂"}
 ];
 
 const EQ_DATA = {
@@ -1145,7 +1244,36 @@ const EQ_DATA = {
         {title:"硫酸钠与氯化钡反应", chem:"Na₂SO₄ + BaCl₂ = BaSO₄↓ + 2NaCl", ion:"SO₄²⁻ + Ba²⁺ = BaSO₄↓"},
         {title:"盐酸与氢氧化钠反应", chem:"HCl + NaOH = NaCl + H₂O", ion:"H⁺ + OH⁻ = H₂O"},
         {title:"锌与稀硫酸反应", chem:"Zn + H₂SO₄ = ZnSO₄ + H₂↑", ion:"Zn + 2H⁺ = Zn²⁺ + H₂↑"},
-        {title:"铁与硫酸铜溶液反应", chem:"Fe + CuSO₄ = FeSO₄ + Cu", ion:"Fe + Cu²⁺ = Fe²⁺ + Cu"}
+        {title:"铁与硫酸铜溶液反应", chem:"Fe + CuSO₄ = FeSO₄ + Cu", ion:"Fe + Cu²⁺ = Fe²⁺ + Cu"},
+        {title:"碳酸钙与盐酸反应", chem:"CaCO₃ + 2HCl = CaCl₂ + H₂O + CO₂↑", ion:"CaCO₃ + 2H⁺ = Ca²⁺ + H₂O + CO₂↑"},
+        {title:"氧化铁与盐酸反应", chem:"Fe₂O₃ + 6HCl = 2FeCl₃ + 3H₂O", ion:"Fe₂O₃ + 6H⁺ = 2Fe³⁺ + 3H₂O"},
+        {title:"氧化铜与硫酸反应", chem:"CuO + H₂SO₄ = CuSO₄ + H₂O", ion:"CuO + 2H⁺ = Cu²⁺ + H₂O"},
+        {title:"二氧化碳与澄清石灰水反应", chem:"CO₂ + Ca(OH)₂ = CaCO₃↓ + H₂O", ion:"CO₂ + Ca²⁺ + 2OH⁻ = CaCO₃↓ + H₂O"},
+        {title:"硫酸铜晶体受热分解", chem:"CuSO₄·5H₂O =Δ= CuSO₄ + 5H₂O↑"},
+        {title:"无水硫酸铜遇水变蓝", chem:"CuSO₄ + 5H₂O = CuSO₄·5H₂O"},
+        {title:"锌与硫酸铜溶液反应", chem:"Zn + CuSO₄ = ZnSO₄ + Cu", ion:"Zn + Cu²⁺ = Zn²⁺ + Cu"},
+        {title:"硫酸铜与氯化钡反应", chem:"CuSO₄ + BaCl₂ = BaSO₄↓ + CuCl₂", ion:"Ba²⁺ + SO₄²⁻ = BaSO₄↓"},
+        {title:"氧化钙与水反应", chem:"CaO + H₂O = Ca(OH)₂"},
+        {title:"石膏加热失去结晶水", chem:"2CaSO₄·2H₂O =Δ= 2CaSO₄·H₂O + 3H₂O"},
+        {title:"熟石膏水化硬化", chem:"2CaSO₄·H₂O + 3H₂O = 2CaSO₄·2H₂O"},
+        {title:"芒硝风化", chem:"Na₂SO₄·10H₂O =风化= Na₂SO₄ + 10H₂O"},
+        {title:"碳酸钠与氯化钙反应", chem:"Na₂CO₃ + CaCl₂ = CaCO₃↓ + 2NaCl", ion:"CO₃²⁻ + Ca²⁺ = CaCO₃↓"},
+        {title:"氢气还原氧化铜", chem:"H₂ + CuO =Δ= Cu + H₂O"},
+        {title:"碳还原氧化铜", chem:"C + 2CuO =高温= 2Cu + CO₂↑"},
+        {title:"镁在氧气中燃烧", chem:"2Mg + O₂ =点燃= 2MgO"},
+        {title:"铝在氧气中燃烧", chem:"4Al + 3O₂ =点燃= 2Al₂O₃"},
+        {title:"氯化钠的电离", chem:"NaCl = Na⁺ + Cl⁻"},
+        {title:"硫酸的电离", chem:"H₂SO₄ = 2H⁺ + SO₄²⁻"},
+        {title:"氢氧化钠的电离", chem:"NaOH = Na⁺ + OH⁻"},
+        {title:"碳酸钠的电离", chem:"Na₂CO₃ = 2Na⁺ + CO₃²⁻"},
+        {title:"盐酸与碳酸钠反应", chem:"Na₂CO₃ + 2HCl = 2NaCl + H₂O + CO₂↑", ion:"CO₃²⁻ + 2H⁺ = H₂O + CO₂↑"},
+        {title:"氢氧化钠与硫酸铜反应", chem:"2NaOH + CuSO₄ = Cu(OH)₂↓ + Na₂SO₄", ion:"Cu²⁺ + 2OH⁻ = Cu(OH)₂↓"},
+        {title:"氢氧化钠与氯化铁反应", chem:"3NaOH + FeCl₃ = Fe(OH)₃↓ + 3NaCl", ion:"Fe³⁺ + 3OH⁻ = Fe(OH)₃↓"},
+        {title:"氢氧化钠与氯化镁反应", chem:"2NaOH + MgCl₂ = Mg(OH)₂↓ + 2NaCl", ion:"Mg²⁺ + 2OH⁻ = Mg(OH)₂↓"},
+        {title:"硝酸银与盐酸反应", chem:"AgNO₃ + HCl = AgCl↓ + HNO₃", ion:"Ag⁺ + Cl⁻ = AgCl↓"},
+        {title:"氯化钡与硫酸反应", chem:"BaCl₂ + H₂SO₄ = BaSO₄↓ + 2HCl", ion:"Ba²⁺ + SO₄²⁻ = BaSO₄↓"},
+        {title:"碳酸钠与盐酸（离子方程式）", chem:"CO₃²⁻ + 2H⁺ = H₂O + CO₂↑"},
+        {title:"碳酸氢钠与盐酸（离子方程式）", chem:"HCO₃⁻ + H⁺ = H₂O + CO₂↑"}
       ]
     },
     {
@@ -1154,24 +1282,45 @@ const EQ_DATA = {
         {title:"钠在常温下被氧化", chem:"4Na + O₂ = 2Na₂O"},
         {title:"钠在空气中燃烧", chem:"2Na + O₂ =点燃= Na₂O₂"},
         {title:"钠与水反应", chem:"2Na + 2H₂O = 2NaOH + H₂↑", ion:"2Na + 2H₂O = 2Na⁺ + 2OH⁻ + H₂↑"},
+        {title:"钠与盐酸反应", chem:"2Na + 2HCl = 2NaCl + H₂↑", ion:"2Na + 2H⁺ = 2Na⁺ + H₂↑"},
+        {title:"钠与硫酸铜溶液反应", chem:"2Na + 2H₂O + CuSO₄ = Cu(OH)₂↓ + Na₂SO₄ + H₂↑"},
+        {title:"氧化钠与水反应", chem:"Na₂O + H₂O = 2NaOH"},
+        {title:"氧化钠与二氧化碳反应", chem:"Na₂O + CO₂ = Na₂CO₃"},
+        {title:"氧化钠与盐酸反应", chem:"Na₂O + 2HCl = 2NaCl + H₂O"},
         {title:"过氧化钠与水反应", chem:"2Na₂O₂ + 2H₂O = 4NaOH + O₂↑"},
         {title:"过氧化钠与二氧化碳反应", chem:"2Na₂O₂ + 2CO₂ = 2Na₂CO₃ + O₂"},
+        {title:"过氧化钠与盐酸反应", chem:"2Na₂O₂ + 4HCl = 4NaCl + 2H₂O + O₂↑"},
         {title:"碳酸钠与盐酸反应", chem:"Na₂CO₃ + 2HCl = 2NaCl + H₂O + CO₂↑", ion:"CO₃²⁻ + 2H⁺ = H₂O + CO₂↑"},
         {title:"碳酸氢钠与盐酸反应", chem:"NaHCO₃ + HCl = NaCl + H₂O + CO₂↑", ion:"HCO₃⁻ + H⁺ = H₂O + CO₂↑"},
         {title:"碳酸氢钠受热分解", chem:"2NaHCO₃ =Δ= Na₂CO₃ + H₂O + CO₂↑"},
+        {title:"碳酸钠溶液吸收二氧化碳", chem:"Na₂CO₃ + CO₂ + H₂O = 2NaHCO₃"},
+        {title:"碳酸氢钠与氢氧化钠反应", chem:"NaHCO₃ + NaOH = Na₂CO₃ + H₂O"},
+        {title:"碳酸钠与氢氧化钙反应", chem:"Na₂CO₃ + Ca(OH)₂ = CaCO₃↓ + 2NaOH", ion:"CO₃²⁻ + Ca²⁺ = CaCO₃↓"},
+        {title:"钠与氯气反应", chem:"2Na + Cl₂ =点燃= 2NaCl"},
         {title:"氯气与铁反应", chem:"2Fe + 3Cl₂ =点燃= 2FeCl₃"},
         {title:"氯气与铜反应", chem:"Cu + Cl₂ =点燃= CuCl₂"},
         {title:"氯气与氢气反应", chem:"H₂ + Cl₂ =点燃= 2HCl"},
         {title:"氯气与水反应", chem:"Cl₂ + H₂O ⇌ HCl + HClO", ion:"Cl₂ + H₂O ⇌ H⁺ + Cl⁻ + HClO"},
         {title:"氯气与氢氧化钠反应", chem:"Cl₂ + 2NaOH = NaCl + NaClO + H₂O", ion:"Cl₂ + 2OH⁻ = Cl⁻ + ClO⁻ + H₂O"},
         {title:"工业制漂白粉", chem:"2Cl₂ + 2Ca(OH)₂ = Ca(ClO)₂ + CaCl₂ + 2H₂O"},
-        {title:"次氯酸见光分解", chem:"2HClO =光照= 2HCl + O₂↑"}
+        {title:"次氯酸见光分解", chem:"2HClO =光照= 2HCl + O₂↑"},
+        {title:"漂白粉失效", chem:"Ca(ClO)₂ + CO₂ + H₂O = CaCO₃↓ + 2HClO"},
+        {title:"84消毒液与洁厕灵混合", chem:"NaClO + 2HCl = NaCl + Cl₂↑ + H₂O"},
+        {title:"氯气与溴化钠反应", chem:"Cl₂ + 2NaBr = 2NaCl + Br₂", ion:"Cl₂ + 2Br⁻ = 2Cl⁻ + Br₂"},
+        {title:"氯气与碘化钾反应", chem:"Cl₂ + 2KI = 2KCl + I₂", ion:"Cl₂ + 2I⁻ = 2Cl⁻ + I₂"},
+        {title:"溴与碘化钾反应", chem:"Br₂ + 2KI = 2KBr + I₂", ion:"Br₂ + 2I⁻ = 2Br⁻ + I₂"},
+        {title:"氯化钠与硝酸银反应", chem:"NaCl + AgNO₃ = AgCl↓ + NaNO₃", ion:"Ag⁺ + Cl⁻ = AgCl↓"},
+        {title:"氯酸钾受热分解", chem:"2KClO₃ =MnO₂/Δ= 2KCl + 3O₂↑"},
+        {title:"高锰酸钾受热分解", chem:"2KMnO₄ =Δ= K₂MnO₄ + MnO₂ + O₂↑"},
+        {title:"过氧化氢分解", chem:"2H₂O₂ =MnO₂= 2H₂O + O₂↑"}
       ]
     },
     {
       group: "第三章 铁 金属材料",
       items: [
+        {title:"铁在氧气中燃烧", chem:"3Fe + 2O₂ =点燃= Fe₃O₄"},
         {title:"铁与水蒸气反应", chem:"3Fe + 4H₂O(g) =高温= Fe₃O₄ + 4H₂"},
+        {title:"铁与硫反应", chem:"Fe + S =Δ= FeS"},
         {title:"铁与稀盐酸反应", chem:"Fe + 2HCl = FeCl₂ + H₂↑", ion:"Fe + 2H⁺ = Fe²⁺ + H₂↑"},
         {title:"铁与硫酸铜溶液反应", chem:"Fe + CuSO₄ = FeSO₄ + Cu", ion:"Fe + Cu²⁺ = Fe²⁺ + Cu"},
         {title:"氯化铁与铁反应", chem:"2FeCl₃ + Fe = 3FeCl₂", ion:"2Fe³⁺ + Fe = 3Fe²⁺"},
@@ -1179,8 +1328,18 @@ const EQ_DATA = {
         {title:"氯化亚铁与氯气反应", chem:"2FeCl₂ + Cl₂ = 2FeCl₃", ion:"2Fe²⁺ + Cl₂ = 2Fe³⁺ + 2Cl⁻"},
         {title:"氢氧化亚铁被氧化", chem:"4Fe(OH)₂ + O₂ + 2H₂O = 4Fe(OH)₃"},
         {title:"氢氧化铁受热分解", chem:"2Fe(OH)₃ =Δ= Fe₂O₃ + 3H₂O"},
-        {title:"铁在氧气中燃烧", chem:"3Fe + 2O₂ =点燃= Fe₃O₄"},
-        {title:"铁与硫反应", chem:"Fe + S =Δ= FeS"},
+        {title:"氧化亚铁与盐酸反应", chem:"FeO + 2HCl = FeCl₂ + H₂O", ion:"FeO + 2H⁺ = Fe²⁺ + H₂O"},
+        {title:"四氧化三铁与盐酸反应", chem:"Fe₃O₄ + 8HCl = FeCl₂ + 2FeCl₃ + 4H₂O", ion:"Fe₃O₄ + 8H⁺ = Fe²⁺ + 2Fe³⁺ + 4H₂O"},
+        {title:"氧化铁与盐酸反应", chem:"Fe₂O₃ + 6HCl = 2FeCl₃ + 3H₂O", ion:"Fe₂O₃ + 6H⁺ = 2Fe³⁺ + 3H₂O"},
+        {title:"氢氧化铁与盐酸反应", chem:"Fe(OH)₃ + 3HCl = FeCl₃ + 3H₂O", ion:"Fe(OH)₃ + 3H⁺ = Fe³⁺ + 3H₂O"},
+        {title:"氢氧化亚铁与盐酸反应", chem:"Fe(OH)₂ + 2HCl = FeCl₂ + 2H₂O", ion:"Fe(OH)₂ + 2H⁺ = Fe²⁺ + 2H₂O"},
+        {title:"氯化铁与氢氧化钠反应", chem:"FeCl₃ + 3NaOH = Fe(OH)₃↓ + 3NaCl", ion:"Fe³⁺ + 3OH⁻ = Fe(OH)₃↓"},
+        {title:"硫酸亚铁与氢氧化钠反应", chem:"FeSO₄ + 2NaOH = Fe(OH)₂↓ + Na₂SO₄", ion:"Fe²⁺ + 2OH⁻ = Fe(OH)₂↓"},
+        {title:"铁离子的检验", chem:"Fe³⁺ + 3SCN⁻ ⇌ Fe(SCN)₃（血红色）"},
+        {title:"亚铁离子的检验", chem:"3Fe²⁺ + 2[Fe(CN)₆]³⁻ = Fe₃[Fe(CN)₆]₂↓（蓝色）"},
+        {title:"铁与氯气反应", chem:"2Fe + 3Cl₂ =点燃= 2FeCl₃"},
+        {title:"铝在氧气中燃烧", chem:"4Al + 3O₂ =点燃= 2Al₂O₃"},
+        {title:"铝与盐酸反应", chem:"2Al + 6HCl = 2AlCl₃ + 3H₂↑", ion:"2Al + 6H⁺ = 2Al³⁺ + 3H₂↑"},
         {title:"铝与氢氧化钠溶液反应", chem:"2Al + 2NaOH + 2H₂O = 2NaAlO₂ + 3H₂↑", ion:"2Al + 2OH⁻ + 2H₂O = 2AlO₂⁻ + 3H₂↑"},
         {title:"氧化铝与盐酸反应", chem:"Al₂O₃ + 6HCl = 2AlCl₃ + 3H₂O", ion:"Al₂O₃ + 6H⁺ = 2Al³⁺ + 3H₂O"},
         {title:"氧化铝与氢氧化钠反应", chem:"Al₂O₃ + 2NaOH = 2NaAlO₂ + H₂O", ion:"Al₂O₃ + 2OH⁻ = 2AlO₂⁻ + H₂O"},
@@ -1188,15 +1347,42 @@ const EQ_DATA = {
         {title:"氢氧化铝与氢氧化钠反应", chem:"Al(OH)₃ + NaOH = NaAlO₂ + 2H₂O", ion:"Al(OH)₃ + OH⁻ = AlO₂⁻ + 2H₂O"},
         {title:"氢氧化铝受热分解", chem:"2Al(OH)₃ =Δ= Al₂O₃ + 3H₂O"},
         {title:"铝热反应", chem:"2Al + Fe₂O₃ =高温= Al₂O₃ + 2Fe"},
-        {title:"铝与盐酸反应", chem:"2Al + 6HCl = 2AlCl₃ + 3H₂↑", ion:"2Al + 6H⁺ = 2Al³⁺ + 3H₂↑"},
-        {title:"铜与氧气反应", chem:"2Cu + O₂ =Δ= 2CuO"}
+        {title:"氯化铝与氨水反应", chem:"AlCl₃ + 3NH₃·H₂O = Al(OH)₃↓ + 3NH₄Cl", ion:"Al³⁺ + 3NH₃·H₂O = Al(OH)₃↓ + 3NH₄⁺"},
+        {title:"硫酸铝与氨水反应", chem:"Al₂(SO₄)₃ + 6NH₃·H₂O = 2Al(OH)₃↓ + 3(NH₄)₂SO₄"},
+        {title:"偏铝酸钠溶液通入二氧化碳", chem:"NaAlO₂ + CO₂ + 2H₂O = Al(OH)₃↓ + NaHCO₃", ion:"AlO₂⁻ + CO₂ + 2H₂O = Al(OH)₃↓ + HCO₃⁻"},
+        {title:"偏铝酸钠与盐酸（少量）", chem:"NaAlO₂ + HCl + H₂O = Al(OH)₃↓ + NaCl"},
+        {title:"偏铝酸钠与盐酸（过量）", chem:"NaAlO₂ + 4HCl = AlCl₃ + NaCl + 2H₂O"},
+        {title:"氯化铝与偏铝酸钠双水解", chem:"AlCl₃ + 3NaAlO₂ + 6H₂O = 4Al(OH)₃↓ + 3NaCl", ion:"Al³⁺ + 3AlO₂⁻ + 6H₂O = 4Al(OH)₃↓"},
+        {title:"铜与氧气反应", chem:"2Cu + O₂ =Δ= 2CuO"},
+        {title:"氧化铜与氢气反应", chem:"CuO + H₂ =Δ= Cu + H₂O"},
+        {title:"氧化铜与一氧化碳反应", chem:"CuO + CO =Δ= Cu + CO₂"},
+        {title:"氧化铜与硫酸反应", chem:"CuO + H₂SO₄ = CuSO₄ + H₂O", ion:"CuO + 2H⁺ = Cu²⁺ + H₂O"},
+        {title:"氢氧化铜受热分解", chem:"Cu(OH)₂ =Δ= CuO + H₂O"},
+        {title:"氢氧化铜与盐酸反应", chem:"Cu(OH)₂ + 2HCl = CuCl₂ + 2H₂O", ion:"Cu(OH)₂ + 2H⁺ = Cu²⁺ + 2H₂O"},
+        {title:"硫酸铜与氢氧化钠反应", chem:"CuSO₄ + 2NaOH = Cu(OH)₂↓ + Na₂SO₄", ion:"Cu²⁺ + 2OH⁻ = Cu(OH)₂↓"},
+        {title:"镁与盐酸反应", chem:"Mg + 2HCl = MgCl₂ + H₂↑", ion:"Mg + 2H⁺ = Mg²⁺ + H₂↑"},
+        {title:"镁在氧气中燃烧", chem:"2Mg + O₂ =点燃= 2MgO"},
+        {title:"镁与热水反应", chem:"Mg + 2H₂O =Δ= Mg(OH)₂ + H₂↑"},
+        {title:"锌与盐酸反应", chem:"Zn + 2HCl = ZnCl₂ + H₂↑", ion:"Zn + 2H⁺ = Zn²⁺ + H₂↑"},
+        {title:"铜与硝酸银溶液反应", chem:"Cu + 2AgNO₃ = Cu(NO₃)₂ + 2Ag", ion:"Cu + 2Ag⁺ = Cu²⁺ + 2Ag"}
       ]
     },
     {
       group: "第四章 物质结构 元素周期律",
       items: [
         {title:"钠与氯气反应（离子键的形成）", chem:"2Na + Cl₂ =点燃= 2NaCl"},
-        {title:"氢气与氯气反应（共价键的形成）", chem:"H₂ + Cl₂ =点燃= 2HCl"}
+        {title:"氢气与氯气反应（共价键的形成）", chem:"H₂ + Cl₂ =点燃= 2HCl"},
+        {title:"钾与水反应", chem:"2K + 2H₂O = 2KOH + H₂↑"},
+        {title:"钠与水反应", chem:"2Na + 2H₂O = 2NaOH + H₂↑"},
+        {title:"镁与热水反应", chem:"Mg + 2H₂O =Δ= Mg(OH)₂ + H₂↑"},
+        {title:"氯气与溴化钾反应", chem:"Cl₂ + 2KBr = 2KCl + Br₂"},
+        {title:"溴与碘化钾反应", chem:"Br₂ + 2KI = 2KBr + I₂"},
+        {title:"氯气与碘化钾反应", chem:"Cl₂ + 2KI = 2KCl + I₂"},
+        {title:"氢气在氧气中燃烧", chem:"2H₂ + O₂ =点燃= 2H₂O"},
+        {title:"镁在氧气中燃烧", chem:"2Mg + O₂ =点燃= 2MgO"},
+        {title:"铝在氧气中燃烧", chem:"4Al + 3O₂ =点燃= 2Al₂O₃"},
+        {title:"铝与盐酸反应", chem:"2Al + 6HCl = 2AlCl₃ + 3H₂↑"},
+        {title:"铝与氢氧化钠溶液反应", chem:"2Al + 2NaOH + 2H₂O = 2NaAlO₂ + 3H₂↑"}
       ]
     }
   ],
@@ -1204,30 +1390,69 @@ const EQ_DATA = {
     {
       group: "第五章 化工生产中的重要非金属元素",
       items: [
-        {title:"硫与铁反应", chem:"Fe + S =Δ= FeS"},
-        {title:"硫与铜反应", chem:"2Cu + S =Δ= Cu₂S"},
         {title:"硫在氧气中燃烧", chem:"S + O₂ =点燃= SO₂"},
         {title:"二氧化硫与水反应", chem:"SO₂ + H₂O ⇌ H₂SO₃"},
         {title:"二氧化硫与氢氧化钠反应", chem:"SO₂ + 2NaOH = Na₂SO₃ + H₂O"},
-        {title:"二氧化硫的催化氧化", chem:"2SO₂ + O₂ ⇌ 2SO₃"},
+        {title:"二氧化硫与氢氧化钠反应（过量）", chem:"SO₂ + NaOH = NaHSO₃"},
+        {title:"二氧化硫与氧化钙反应", chem:"SO₂ + CaO = CaSO₃"},
+        {title:"二氧化硫与氢氧化钙反应", chem:"SO₂ + Ca(OH)₂ = CaSO₃↓ + H₂O"},
+        {title:"二氧化硫的催化氧化", chem:"2SO₂ + O₂ ⇌ 2SO₃", ion:"催化剂/Δ"},
         {title:"三氧化硫与水反应", chem:"SO₃ + H₂O = H₂SO₄"},
+        {title:"硫酸与氢氧化钠反应", chem:"H₂SO₄ + 2NaOH = Na₂SO₄ + 2H₂O"},
         {title:"铜与浓硫酸反应", chem:"Cu + 2H₂SO₄(浓) =Δ= CuSO₄ + SO₂↑ + 2H₂O"},
         {title:"碳与浓硫酸反应", chem:"C + 2H₂SO₄(浓) =Δ= CO₂↑ + 2SO₂↑ + 2H₂O"},
-        {title:"氮气与氢气合成氨", chem:"N₂ + 3H₂ ⇌ 2NH₃"},
+        {title:"硫与浓硫酸反应", chem:"S + 2H₂SO₄(浓) =Δ= 3SO₂↑ + 2H₂O"},
+        {title:"二氧化硫与氯水反应", chem:"SO₂ + Cl₂ + 2H₂O = H₂SO₄ + 2HCl"},
+        {title:"二氧化硫与硫化氢反应", chem:"SO₂ + 2H₂S = 3S↓ + 2H₂O"},
+        {title:"硫化氢与氢氧化钠反应", chem:"H₂S + 2NaOH = Na₂S + 2H₂O"},
+        {title:"硫化氢完全燃烧", chem:"2H₂S + 3O₂ =点燃= 2SO₂ + 2H₂O"},
+        {title:"硫化氢不完全燃烧", chem:"2H₂S + O₂ =点燃= 2S + 2H₂O"},
+        {title:"亚硫酸钠与稀硫酸反应", chem:"Na₂SO₃ + H₂SO₄ = Na₂SO₄ + SO₂↑ + H₂O"},
+        {title:"硫代硫酸钠与稀硫酸反应", chem:"Na₂S₂O₃ + H₂SO₄ = Na₂SO₄ + SO₂↑ + S↓ + H₂O"},
+        {title:"氮气与氢气合成氨", chem:"N₂ + 3H₂ ⇌ 2NH₃", ion:"高温高压催化剂"},
         {title:"氮气与氧气放电反应", chem:"N₂ + O₂ =放电= 2NO"},
         {title:"一氧化氮与氧气反应", chem:"2NO + O₂ = 2NO₂"},
         {title:"二氧化氮与水反应", chem:"3NO₂ + H₂O = 2HNO₃ + NO"},
         {title:"氨气溶于水", chem:"NH₃ + H₂O ⇌ NH₃·H₂O ⇌ NH₄⁺ + OH⁻"},
         {title:"氨气与氯化氢反应", chem:"NH₃ + HCl = NH₄Cl"},
+        {title:"氨气与硝酸反应", chem:"NH₃ + HNO₃ = NH₄NO₃"},
+        {title:"氨气与硫酸反应", chem:"2NH₃ + H₂SO₄ = (NH₄)₂SO₄"},
         {title:"氨的催化氧化", chem:"4NH₃ + 5O₂ =催化剂/Δ= 4NO + 6H₂O"},
         {title:"氯化铵受热分解", chem:"NH₄Cl =Δ= NH₃↑ + HCl↑"},
+        {title:"碳酸氢铵受热分解", chem:"NH₄HCO₃ =Δ= NH₃↑ + CO₂↑ + H₂O"},
+        {title:"碳酸铵受热分解", chem:"(NH₄)₂CO₃ =Δ= 2NH₃↑ + CO₂↑ + H₂O"},
+        {title:"尿素水解", chem:"CO(NH₂)₂ + H₂O =脲酶= CO₂↑ + 2NH₃↑"},
+        {title:"硝酸钾受热分解", chem:"2KNO₃ =Δ= 2KNO₂ + O₂↑"},
+        {title:"氯化铵与氢氧化钠反应", chem:"NH₄Cl + NaOH =Δ= NaCl + NH₃↑ + H₂O", ion:"NH₄⁺ + OH⁻ =Δ= NH₃↑ + H₂O"},
+        {title:"实验室制氨气", chem:"2NH₄Cl + Ca(OH)₂ =Δ= CaCl₂ + 2NH₃↑ + 2H₂O"},
+        {title:"硫酸铵与氢氧化钙反应", chem:"(NH₄)₂SO₄ + Ca(OH)₂ =Δ= CaSO₄ + 2NH₃↑ + 2H₂O"},
+        {title:"硝酸铵与氢氧化钠反应", chem:"NH₄NO₃ + NaOH =Δ= NaNO₃ + NH₃↑ + H₂O"},
         {title:"铜与稀硝酸反应", chem:"3Cu + 8HNO₃(稀) = 3Cu(NO₃)₂ + 2NO↑ + 4H₂O", ion:"3Cu + 8H⁺ + 2NO₃⁻ = 3Cu²⁺ + 2NO↑ + 4H₂O"},
         {title:"铜与浓硝酸反应", chem:"Cu + 4HNO₃(浓) = Cu(NO₃)₂ + 2NO₂↑ + 2H₂O", ion:"Cu + 4H⁺ + 2NO₃⁻ = Cu²⁺ + 2NO₂↑ + 2H₂O"},
+        {title:"铁与稀硝酸反应（酸过量）", chem:"Fe + 4HNO₃(稀) = Fe(NO₃)₃ + NO↑ + 2H₂O"},
+        {title:"铁与稀硝酸反应（铁过量）", chem:"3Fe + 8HNO₃(稀) = 3Fe(NO₃)₂ + 2NO↑ + 4H₂O"},
+        {title:"铁与浓硝酸反应", chem:"Fe + 6HNO₃(浓) =Δ= Fe(NO₃)₃ + 3NO₂↑ + 3H₂O"},
+        {title:"碳与浓硝酸反应", chem:"C + 4HNO₃(浓) =Δ= CO₂↑ + 4NO₂↑ + 2H₂O"},
+        {title:"硫与浓硝酸反应", chem:"S + 6HNO₃(浓) =Δ= H₂SO₄ + 6NO₂↑ + 2H₂O"},
+        {title:"硝酸与氢氧化钠反应", chem:"HNO₃ + NaOH = NaNO₃ + H₂O"},
+        {title:"硝酸与碳酸钙反应", chem:"2HNO₃ + CaCO₃ = Ca(NO₃)₂ + H₂O + CO₂↑"},
+        {title:"一氧化氮与二氧化氮混合气被碱吸收", chem:"NO + NO₂ + 2NaOH = 2NaNO₂ + H₂O"},
+        {title:"二氧化氮被碱吸收", chem:"2NO₂ + 2NaOH = NaNO₂ + NaNO₃ + H₂O"},
+        {title:"二氧化氮二聚", chem:"2NO₂ ⇌ N₂O₄"},
+        {title:"侯氏制碱法（生成碳酸氢钠）", chem:"NaCl + NH₃ + CO₂ + H₂O = NaHCO₃↓ + NH₄Cl"},
+        {title:"侯氏制碱法（碳酸氢钠分解）", chem:"2NaHCO₃ =Δ= Na₂CO₃ + CO₂↑ + H₂O"},
+        {title:"硅与氧气反应", chem:"Si + O₂ =Δ= SiO₂"},
         {title:"硅与氢氧化钠溶液反应", chem:"Si + 2NaOH + H₂O = Na₂SiO₃ + 2H₂↑"},
         {title:"二氧化硅与氢氧化钠反应", chem:"SiO₂ + 2NaOH = Na₂SiO₃ + H₂O"},
         {title:"二氧化硅与氢氟酸反应", chem:"SiO₂ + 4HF = SiF₄↑ + 2H₂O"},
         {title:"二氧化硅与碳酸钙高温反应", chem:"SiO₂ + CaCO₃ =高温= CaSiO₃ + CO₂↑"},
-        {title:"硅酸钠溶液中通入二氧化碳", chem:"Na₂SiO₃ + CO₂ + H₂O = H₂SiO₃↓ + Na₂CO₃"}
+        {title:"二氧化硅与碳酸钠高温反应", chem:"SiO₂ + Na₂CO₃ =高温= Na₂SiO₃ + CO₂↑"},
+        {title:"硅酸钠溶液中通入二氧化碳", chem:"Na₂SiO₃ + CO₂ + H₂O = H₂SiO₃↓ + Na₂CO₃"},
+        {title:"硅酸钠与盐酸反应", chem:"Na₂SiO₃ + 2HCl = H₂SiO₃↓ + 2NaCl"},
+        {title:"硅酸受热分解", chem:"H₂SiO₃ =Δ= SiO₂ + H₂O"},
+        {title:"硅与氯气反应", chem:"Si + 2Cl₂ =Δ= SiCl₄"},
+        {title:"二氧化硅与碳高温反应", chem:"SiO₂ + 2C =高温= Si + 2CO↑"},
+        {title:"二氧化硅与碳高温反应（生成碳化硅）", chem:"SiO₂ + 3C =高温= SiC + 2CO↑"}
       ]
     },
     {
@@ -1235,31 +1460,83 @@ const EQ_DATA = {
       items: [
         {title:"氢气燃烧", chem:"2H₂ + O₂ =点燃= 2H₂O"},
         {title:"碳完全燃烧", chem:"C + O₂ =点燃= CO₂"},
-        {title:"甲烷燃烧", chem:"CH₄ + 2O₂ =点燃= CO₂ + 2H₂O"}
+        {title:"甲烷燃烧", chem:"CH₄ + 2O₂ =点燃= CO₂ + 2H₂O"},
+        {title:"乙醇燃烧", chem:"C₂H₅OH + 3O₂ =点燃= 2CO₂ + 3H₂O"},
+        {title:"锌与盐酸反应", chem:"Zn + 2HCl = ZnCl₂ + H₂↑", ion:"Zn + 2H⁺ = Zn²⁺ + H₂↑"},
+        {title:"镁与盐酸反应", chem:"Mg + 2HCl = MgCl₂ + H₂↑"},
+        {title:"铁与盐酸反应", chem:"Fe + 2HCl = FeCl₂ + H₂↑"},
+        {title:"铝与盐酸反应", chem:"2Al + 6HCl = 2AlCl₃ + 3H₂↑"},
+        {title:"过氧化氢分解", chem:"2H₂O₂ =MnO₂= 2H₂O + O₂↑"},
+        {title:"碳酸钙与盐酸反应", chem:"CaCO₃ + 2HCl = CaCl₂ + H₂O + CO₂↑"},
+        {title:"八水合氢氧化钡与氯化铵反应", chem:"Ba(OH)₂·8H₂O + 2NH₄Cl = BaCl₂ + 2NH₃↑ + 10H₂O"},
+        {title:"碳与二氧化碳高温反应", chem:"C + CO₂ =高温= 2CO"},
+        {title:"合成氨反应", chem:"N₂ + 3H₂ ⇌ 2NH₃"},
+        {title:"二氧化硫的催化氧化", chem:"2SO₂ + O₂ ⇌ 2SO₃"},
+        {title:"氯气与水反应", chem:"Cl₂ + H₂O ⇌ HCl + HClO"},
+        {title:"铁离子与硫氰化钾显色", chem:"Fe³⁺ + 3SCN⁻ ⇌ Fe(SCN)₃"},
+        {title:"二氧化氮二聚", chem:"2NO₂ ⇌ N₂O₄"},
+        {title:"醋酸的电离", chem:"CH₃COOH ⇌ CH₃COO⁻ + H⁺"},
+        {title:"氨水的电离", chem:"NH₃·H₂O ⇌ NH₄⁺ + OH⁻"},
+        {title:"水的电离", chem:"H₂O ⇌ H⁺ + OH⁻"},
+        {title:"氯酸钾受热分解", chem:"2KClO₃ =MnO₂/Δ= 2KCl + 3O₂↑"},
+        {title:"高锰酸钾受热分解", chem:"2KMnO₄ =Δ= K₂MnO₄ + MnO₂ + O₂↑"},
+        {title:"过氧化钠与水反应", chem:"2Na₂O₂ + 2H₂O = 4NaOH + O₂↑"},
+        {title:"过氧化钠与二氧化碳反应", chem:"2Na₂O₂ + 2CO₂ = 2Na₂CO₃ + O₂"}
       ]
     },
     {
       group: "第七章 有机化合物",
       items: [
-        {title:"甲烷与氯气光照取代", chem:"CH₄ + Cl₂ =光照= CH₃Cl + HCl"},
+        {title:"甲烷燃烧", chem:"CH₄ + 2O₂ =点燃= CO₂ + 2H₂O"},
+        {title:"甲烷与氯气光照取代（一氯甲烷）", chem:"CH₄ + Cl₂ =光照= CH₃Cl + HCl"},
+        {title:"一氯甲烷继续取代（二氯甲烷）", chem:"CH₃Cl + Cl₂ =光照= CH₂Cl₂ + HCl"},
+        {title:"二氯甲烷继续取代（三氯甲烷）", chem:"CH₂Cl₂ + Cl₂ =光照= CHCl₃ + HCl"},
+        {title:"三氯甲烷继续取代（四氯化碳）", chem:"CHCl₃ + Cl₂ =光照= CCl₄ + HCl"},
+        {title:"乙烷燃烧", chem:"2C₂H₆ + 7O₂ =点燃= 4CO₂ + 6H₂O"},
+        {title:"丙烷燃烧", chem:"C₃H₈ + 5O₂ =点燃= 3CO₂ + 4H₂O"},
+        {title:"丁烷燃烧", chem:"2C₄H₁₀ + 13O₂ =点燃= 8CO₂ + 10H₂O"},
         {title:"乙烯燃烧", chem:"C₂H₄ + 3O₂ =点燃= 2CO₂ + 2H₂O"},
         {title:"乙烯与溴水加成", chem:"CH₂=CH₂ + Br₂ → CH₂BrCH₂Br"},
+        {title:"乙烯与氢气加成", chem:"CH₂=CH₂ + H₂ =催化剂/Δ= CH₃CH₃"},
+        {title:"乙烯与氯化氢加成", chem:"CH₂=CH₂ + HCl =催化剂/Δ= CH₃CH₂Cl"},
         {title:"乙烯与水加成", chem:"CH₂=CH₂ + H₂O =催化剂/Δ= CH₃CH₂OH"},
         {title:"乙烯聚合", chem:"nCH₂=CH₂ =催化剂= [-CH₂-CH₂-]ₙ"},
+        {title:"丙烯与溴水加成", chem:"CH₃CH=CH₂ + Br₂ → CH₃CHBrCH₂Br"},
+        {title:"丙烯与氢气加成", chem:"CH₃CH=CH₂ + H₂ =催化剂/Δ= CH₃CH₂CH₃"},
+        {title:"丙烯与氯化氢加成", chem:"CH₃CH=CH₂ + HCl =催化剂/Δ= CH₃CHClCH₃"},
+        {title:"丙烯聚合", chem:"nCH₃CH=CH₂ =催化剂= [-CH(CH₃)-CH₂-]ₙ"},
         {title:"乙炔燃烧", chem:"2C₂H₂ + 5O₂ =点燃= 4CO₂ + 2H₂O"},
+        {title:"乙炔与溴加成（1:1）", chem:"CH≡CH + Br₂ → CHBr=CHBr"},
+        {title:"乙炔与溴加成（1:2）", chem:"CH≡CH + 2Br₂ → CHBr₂CHBr₂"},
+        {title:"乙炔与氢气加成（1:1）", chem:"CH≡CH + H₂ =催化剂/Δ= CH₂=CH₂"},
+        {title:"乙炔与氢气加成（1:2）", chem:"CH≡CH + 2H₂ =催化剂/Δ= CH₃CH₃"},
+        {title:"乙炔与氯化氢加成", chem:"CH≡CH + HCl =催化剂/Δ= CH₂=CHCl"},
+        {title:"乙炔与水加成", chem:"CH≡CH + H₂O =催化剂/Δ= CH₃CHO"},
+        {title:"乙炔的实验室制法", chem:"CaC₂ + 2H₂O → Ca(OH)₂ + C₂H₂↑"},
         {title:"苯燃烧", chem:"2C₆H₆ + 15O₂ =点燃= 12CO₂ + 6H₂O"},
         {title:"苯的溴代反应", chem:"C₆H₆ + Br₂ =FeBr₃= C₆H₅Br + HBr"},
+        {title:"苯的氯代反应", chem:"C₆H₆ + Cl₂ =FeCl₃= C₆H₅Cl + HCl"},
         {title:"苯的硝化反应", chem:"C₆H₆ + HNO₃ =浓硫酸/55~60℃= C₆H₅NO₂ + H₂O"},
+        {title:"苯的磺化反应", chem:"C₆H₆ + H₂SO₄(浓) =Δ= C₆H₅SO₃H + H₂O"},
         {title:"苯与氢气加成", chem:"C₆H₆ + 3H₂ =催化剂/Δ= C₆H₁₂"},
+        {title:"甲苯的硝化", chem:"C₆H₅CH₃ + 3HNO₃ =浓硫酸/Δ= CH₃C₆H₂(NO₂)₃ + 3H₂O"},
+        {title:"甲苯的侧链氧化", chem:"C₆H₅CH₃ + 2KMnO₄ =Δ= C₆H₅COOK + 2MnO₂ + KOH + H₂O"},
+        {title:"甲苯与氯气的光照取代", chem:"C₆H₅CH₃ + Cl₂ =光照= C₆H₅CH₂Cl + HCl"},
+        {title:"苯乙烯聚合", chem:"nC₆H₅CH=CH₂ =催化剂= [-CH(C₆H₅)-CH₂-]ₙ"},
         {title:"乙醇与钠反应", chem:"2CH₃CH₂OH + 2Na → 2CH₃CH₂ONa + H₂↑"},
         {title:"乙醇催化氧化", chem:"2CH₃CH₂OH + O₂ =Cu/Δ= 2CH₃CHO + 2H₂O"},
+        {title:"乙醇消去反应", chem:"CH₃CH₂OH =浓硫酸/170℃= CH₂=CH₂↑ + H₂O"},
+        {title:"乙醇分子间脱水", chem:"2CH₃CH₂OH =浓硫酸/140℃= CH₃CH₂OCH₂CH₃ + H₂O"},
         {title:"乙酸与乙醇酯化", chem:"CH₃COOH + CH₃CH₂OH ⇌ 浓硫酸/Δ= CH₃COOCH₂CH₃ + H₂O"},
         {title:"乙酸与碳酸钠反应", chem:"2CH₃COOH + Na₂CO₃ = 2CH₃COONa + H₂O + CO₂↑"},
+        {title:"乙酸与碳酸氢钠反应", chem:"CH₃COOH + NaHCO₃ = CH₃COONa + H₂O + CO₂↑"},
+        {title:"乙酸与氢氧化钠反应", chem:"CH₃COOH + NaOH = CH₃COONa + H₂O"},
         {title:"葡萄糖燃烧", chem:"C₆H₁₂O₆ + 6O₂ =点燃= 6CO₂ + 6H₂O"},
         {title:"葡萄糖发酵", chem:"C₆H₁₂O₆ =酒化酶= 2C₂H₅OH + 2CO₂↑"},
-        {title:"葡萄糖与新制Cu(OH)₂", chem:"CH₂OH(CHOH)₄CHO + 2Cu(OH)₂ + NaOH =Δ= CH₂OH(CHOH)₄COONa + Cu₂O↓ + 3H₂O"},
-        {title:"葡萄糖与银氨溶液", chem:"CH₂OH(CHOH)₄CHO + 2Ag(NH₃)₂OH =Δ= CH₂OH(CHOH)₄COONH₄ + 2Ag↓ + 3NH₃ + H₂O"},
-        {title:"蔗糖水解", chem:"C₁₂H₂₂O₁₁ + H₂O =稀硫酸/Δ= C₆H₁₂O₆ + C₆H₁₂O₆"},
+        {title:"葡萄糖与新制氢氧化铜反应", chem:"CH₂OH(CHOH)₄CHO + 2Cu(OH)₂ + NaOH =Δ= CH₂OH(CHOH)₄COONa + Cu₂O↓ + 3H₂O"},
+        {title:"葡萄糖与银氨溶液反应", chem:"CH₂OH(CHOH)₄CHO + 2Ag(NH₃)₂OH =Δ= CH₂OH(CHOH)₄COONH₄ + 2Ag↓ + 3NH₃ + H₂O"},
+        {title:"蔗糖水解", chem:"C₁₂H₂₂O₁₁ + H₂O =稀硫酸/Δ= C₆H₁₂O₆(葡萄糖) + C₆H₁₂O₆(果糖)"},
+        {title:"麦芽糖水解", chem:"C₁₂H₂₂O₁₁ + H₂O =稀硫酸/Δ= 2C₆H₁₂O₆(葡萄糖)"},
         {title:"淀粉水解", chem:"(C₆H₁₀O₅)ₙ + nH₂O =酸或酶= nC₆H₁₂O₆"},
         {title:"纤维素水解", chem:"(C₆H₁₀O₅)ₙ + nH₂O =酸或酶= nC₆H₁₂O₆"},
         {title:"油脂皂化", chem:"(C₁₇H₃₅COO)₃C₃H₅ + 3NaOH =Δ= 3C₁₇H₃₅COONa + C₃H₅(OH)₃"},
@@ -1273,10 +1550,29 @@ const EQ_DATA = {
         {title:"海水提溴（吸收）", chem:"Br₂ + SO₂ + 2H₂O = 2HBr + H₂SO₄"},
         {title:"海水提镁（电解）", chem:"MgCl₂(熔融) =电解= Mg + Cl₂↑"},
         {title:"煤的气化", chem:"C + H₂O(g) =高温= CO + H₂"},
-        {title:"煤的液化（直接）", chem:"C + 2H₂ =催化剂/Δ= CH₄（示例）"},
+        {title:"煤的液化", chem:"C + 2H₂ =催化剂/Δ= CH₄"},
         {title:"石油裂化", chem:"C₁₆H₃₄ =催化剂/加热加压= C₈H₁₈ + C₈H₁₆"},
         {title:"石油裂解", chem:"C₈H₁₈ =催化剂/加热加压= C₄H₁₀ + C₄H₈"},
-        {title:"乙烯水化制乙醇", chem:"CH₂=CH₂ + H₂O =催化剂/加热加压= CH₃CH₂OH"}
+        {title:"乙烯水化制乙醇", chem:"CH₂=CH₂ + H₂O =催化剂/加热加压= CH₃CH₂OH"},
+        {title:"一氧化碳还原氧化铁", chem:"Fe₂O₃ + 3CO =高温= 2Fe + 3CO₂"},
+        {title:"一氧化碳还原四氧化三铁", chem:"Fe₃O₄ + 4CO =高温= 3Fe + 4CO₂"},
+        {title:"碳酸钙高温分解", chem:"CaCO₃ =高温= CaO + CO₂↑"},
+        {title:"氧化钙与二氧化硅反应", chem:"CaO + SiO₂ =高温= CaSiO₃"},
+        {title:"电解饱和食盐水", chem:"2NaCl + 2H₂O =电解= 2NaOH + H₂↑ + Cl₂↑"},
+        {title:"电解熔融氧化铝", chem:"2Al₂O₃(熔融) =电解= 4Al + 3O₂↑"},
+        {title:"电解熔融氯化钠", chem:"2NaCl(熔融) =电解= 2Na + Cl₂↑"},
+        {title:"二氧化硫的催化氧化", chem:"2SO₂ + O₂ ⇌ 2SO₃"},
+        {title:"合成氨反应", chem:"N₂ + 3H₂ ⇌ 2NH₃"},
+        {title:"一氧化氮与氧气反应", chem:"2NO + O₂ = 2NO₂"},
+        {title:"二氧化氮与水反应", chem:"3NO₂ + H₂O = 2HNO₃ + NO"},
+        {title:"二氧化硫与氢氧化钙反应", chem:"SO₂ + Ca(OH)₂ = CaSO₃↓ + H₂O"},
+        {title:"一氧化氮与二氧化氮混合气被碱吸收", chem:"NO + NO₂ + 2NaOH = 2NaNO₂ + H₂O"},
+        {title:"二氧化氮被碱吸收", chem:"2NO₂ + 2NaOH = NaNO₂ + NaNO₃ + H₂O"},
+        {title:"二氧化碳与氢氧化钠反应", chem:"CO₂ + 2NaOH = Na₂CO₃ + H₂O"},
+        {title:"二氧化碳与氢氧化钙反应", chem:"CO₂ + Ca(OH)₂ = CaCO₃↓ + H₂O"},
+        {title:"甲烷燃烧", chem:"CH₄ + 2O₂ =点燃= CO₂ + 2H₂O"},
+        {title:"乙醇燃烧", chem:"C₂H₅OH + 3O₂ =点燃= 2CO₂ + 3H₂O"},
+        {title:"电解水", chem:"2H₂O =电解= 2H₂↑ + O₂↑"}
       ]
     }
   ],
@@ -1286,14 +1582,48 @@ const EQ_DATA = {
       items: [
         {title:"碳完全燃烧的热化学方程式", chem:"C(s) + O₂(g) = CO₂(g)  ΔH = -393.5 kJ/mol"},
         {title:"氢气燃烧的热化学方程式", chem:"2H₂(g) + O₂(g) = 2H₂O(l)  ΔH = -571.6 kJ/mol"},
-        {title:"中和反应的热化学方程式", chem:"H⁺(aq) + OH⁻(aq) = H₂O(l)  ΔH = -57.3 kJ/mol"}
+        {title:"中和反应的热化学方程式", chem:"H⁺(aq) + OH⁻(aq) = H₂O(l)  ΔH = -57.3 kJ/mol"},
+        {title:"甲烷燃烧的热化学方程式", chem:"CH₄(g) + 2O₂(g) = CO₂(g) + 2H₂O(l)  ΔH = -890.3 kJ/mol"},
+        {title:"乙醇燃烧的热化学方程式", chem:"C₂H₅OH(l) + 3O₂(g) = 2CO₂(g) + 3H₂O(l)  ΔH = -1366.8 kJ/mol"},
+        {title:"碳不完全燃烧的热化学方程式", chem:"C(s) + 1/2 O₂(g) = CO(g)  ΔH = -110.5 kJ/mol"},
+        {title:"碳与水蒸气反应的热化学方程式", chem:"C(s) + H₂O(g) = CO(g) + H₂(g)  ΔH = +131.3 kJ/mol"},
+        {title:"合成氨的热化学方程式", chem:"N₂(g) + 3H₂(g) ⇌ 2NH₃(g)  ΔH = -92.4 kJ/mol"},
+        {title:"二氧化硫氧化的热化学方程式", chem:"2SO₂(g) + O₂(g) ⇌ 2SO₃(g)  ΔH = -197.8 kJ/mol"},
+        {title:"碳酸钙分解的热化学方程式", chem:"CaCO₃(s) = CaO(s) + CO₂(g)  ΔH = +178.2 kJ/mol"},
+        {title:"硫燃烧的热化学方程式", chem:"S(s) + O₂(g) = SO₂(g)  ΔH = -296.8 kJ/mol"},
+        {title:"过氧化氢分解的热化学方程式", chem:"2H₂O₂(l) = 2H₂O(l) + O₂(g)  ΔH = -196.0 kJ/mol"},
+        {title:"氢气燃烧生成气态水的热化学方程式", chem:"H₂(g) + 1/2 O₂(g) = H₂O(g)  ΔH = -241.8 kJ/mol"},
+        {title:"氢气燃烧生成液态水的热化学方程式", chem:"H₂(g) + 1/2 O₂(g) = H₂O(l)  ΔH = -285.8 kJ/mol"},
+        {title:"一氧化碳燃烧的热化学方程式", chem:"2CO(g) + O₂(g) = 2CO₂(g)  ΔH = -566.0 kJ/mol"},
+        {title:"盖斯定律应用（碳燃烧）", chem:"C(s) + O₂(g) = CO₂(g)  ΔH = ΔH₁ + ΔH₂", ion:"可由 C(s)+1/2O₂(g)=CO(g) 与 CO(g)+1/2O₂(g)=CO₂(g) 相加得到"},
+        {title:"中和热的测定", chem:"HCl(aq) + NaOH(aq) = NaCl(aq) + H₂O(l)  ΔH = -57.3 kJ/mol"}
       ]
     },
     {
       group: "第二章 化学反应速率与化学平衡",
       items: [
         {title:"合成氨反应", chem:"N₂(g) + 3H₂(g) ⇌ 2NH₃(g)"},
-        {title:"二氧化硫的催化氧化", chem:"2SO₂(g) + O₂(g) ⇌ 2SO₃(g)"}
+        {title:"二氧化硫的催化氧化", chem:"2SO₂(g) + O₂(g) ⇌ 2SO₃(g)"},
+        {title:"氢气与碘蒸气反应", chem:"H₂(g) + I₂(g) ⇌ 2HI(g)"},
+        {title:"一氧化碳与水蒸气反应", chem:"CO(g) + H₂O(g) ⇌ CO₂(g) + H₂(g)"},
+        {title:"铁离子与硫氰化钾显色", chem:"Fe³⁺ + 3SCN⁻ ⇌ Fe(SCN)₃"},
+        {title:"二氧化氮二聚", chem:"2NO₂(g) ⇌ N₂O₄(g)"},
+        {title:"醋酸的电离", chem:"CH₃COOH ⇌ CH₃COO⁻ + H⁺"},
+        {title:"氨水的电离", chem:"NH₃·H₂O ⇌ NH₄⁺ + OH⁻"},
+        {title:"水的电离", chem:"H₂O ⇌ H⁺ + OH⁻"},
+        {title:"碳酸钙分解", chem:"CaCO₃(s) ⇌ CaO(s) + CO₂(g)"},
+        {title:"氯气与水反应", chem:"Cl₂ + H₂O ⇌ HCl + HClO"},
+        {title:"过氧化氢分解", chem:"2H₂O₂ =MnO₂= 2H₂O + O₂↑"},
+        {title:"一氧化氮与氧气反应", chem:"2NO + O₂ = 2NO₂"},
+        {title:"一氧化碳燃烧", chem:"2CO + O₂ = 2CO₂"},
+        {title:"氢气燃烧", chem:"2H₂ + O₂ = 2H₂O"},
+        {title:"氨的催化氧化", chem:"4NH₃ + 5O₂ =催化剂/Δ= 4NO + 6H₂O"},
+        {title:"化学反应速率公式", chem:"v = Δc / Δt"},
+        {title:"合成氨平衡常数表达式", chem:"K = c²(NH₃) / [c(N₂)·c³(H₂)]"},
+        {title:"二氧化硫氧化平衡常数表达式", chem:"K = c²(SO₃) / [c²(SO₂)·c(O₂)]"},
+        {title:"醋酸电离常数表达式", chem:"Kₐ = c(CH₃COO⁻)·c(H⁺) / c(CH₃COOH)"},
+        {title:"水的离子积表达式", chem:"K𝓌 = c(H⁺)·c(OH⁻)"},
+        {title:"平衡转化率公式", chem:"α = (c₀ - c) / c₀ × 100%"}
       ]
     },
     {
@@ -1302,34 +1632,91 @@ const EQ_DATA = {
         {title:"醋酸的电离", chem:"CH₃COOH ⇌ CH₃COO⁻ + H⁺"},
         {title:"氨水的电离", chem:"NH₃·H₂O ⇌ NH₄⁺ + OH⁻"},
         {title:"水的电离", chem:"H₂O ⇌ H⁺ + OH⁻"},
+        {title:"碳酸的第一步电离", chem:"H₂CO₃ ⇌ H⁺ + HCO₃⁻"},
+        {title:"碳酸的第二步电离", chem:"HCO₃⁻ ⇌ H⁺ + CO₃²⁻"},
+        {title:"氢硫酸的第一步电离", chem:"H₂S ⇌ H⁺ + HS⁻"},
+        {title:"氢硫酸的第二步电离", chem:"HS⁻ ⇌ H⁺ + S²⁻"},
+        {title:"次氯酸的电离", chem:"HClO ⇌ H⁺ + ClO⁻"},
+        {title:"亚硫酸的第一步电离", chem:"H₂SO₃ ⇌ H⁺ + HSO₃⁻"},
+        {title:"亚硫酸的第二步电离", chem:"HSO₃⁻ ⇌ H⁺ + SO₃²⁻"},
+        {title:"氢氧化钠的电离", chem:"NaOH = Na⁺ + OH⁻"},
+        {title:"盐酸的电离", chem:"HCl = H⁺ + Cl⁻"},
+        {title:"碳酸钠的电离", chem:"Na₂CO₃ = 2Na⁺ + CO₃²⁻"},
+        {title:"碳酸氢钠的电离", chem:"NaHCO₃ = Na⁺ + HCO₃⁻"},
+        {title:"醋酸钠的电离", chem:"CH₃COONa = CH₃COO⁻ + Na⁺"},
+        {title:"氯化铵的电离", chem:"NH₄Cl = NH₄⁺ + Cl⁻"},
         {title:"醋酸钠的水解", chem:"CH₃COO⁻ + H₂O ⇌ CH₃COOH + OH⁻"},
         {title:"氯化铵的水解", chem:"NH₄⁺ + H₂O ⇌ NH₃·H₂O + H⁺"},
-        {title:"碳酸钠的水解", chem:"CO₃²⁻ + H₂O ⇌ HCO₃⁻ + OH⁻"},
+        {title:"碳酸钠的水解（第一步）", chem:"CO₃²⁻ + H₂O ⇌ HCO₃⁻ + OH⁻"},
+        {title:"碳酸钠的水解（第二步）", chem:"HCO₃⁻ + H₂O ⇌ H₂CO₃ + OH⁻"},
         {title:"氯化铁的水解", chem:"Fe³⁺ + 3H₂O ⇌ Fe(OH)₃ + 3H⁺"},
+        {title:"氯化铝的水解", chem:"Al³⁺ + 3H₂O ⇌ Al(OH)₃ + 3H⁺"},
+        {title:"氯化铜的水解", chem:"Cu²⁺ + 2H₂O ⇌ Cu(OH)₂ + 2H⁺"},
+        {title:"亚硫酸钠的水解", chem:"SO₃²⁻ + H₂O ⇌ HSO₃⁻ + OH⁻"},
+        {title:"次氯酸钠的水解", chem:"ClO⁻ + H₂O ⇌ HClO + OH⁻"},
         {title:"泡沫灭火器原理（双水解）", chem:"Al³⁺ + 3HCO₃⁻ = Al(OH)₃↓ + 3CO₂↑"},
+        {title:"铁离子与碳酸氢根双水解", chem:"Fe³⁺ + 3HCO₃⁻ = Fe(OH)₃↓ + 3CO₂↑"},
+        {title:"铝离子与偏铝酸根双水解", chem:"Al³⁺ + 3AlO₂⁻ + 6H₂O = 4Al(OH)₃↓"},
+        {title:"铝离子与碳酸根双水解", chem:"2Al³⁺ + 3CO₃²⁻ + 3H₂O = 2Al(OH)₃↓ + 3CO₂↑"},
+        {title:"铝离子与硫离子双水解", chem:"2Al³⁺ + 3S²⁻ + 6H₂O = 2Al(OH)₃↓ + 3H₂S↑"},
         {title:"氢氧化镁的沉淀溶解平衡", chem:"Mg(OH)₂(s) ⇌ Mg²⁺ + 2OH⁻"},
         {title:"氯化银的沉淀溶解平衡", chem:"AgCl(s) ⇌ Ag⁺ + Cl⁻"},
-        {title:"氯化银转化为碘化银", chem:"AgCl(s) + I⁻ ⇌ AgI(s) + Cl⁻"}
+        {title:"溴化银的沉淀溶解平衡", chem:"AgBr(s) ⇌ Ag⁺ + Br⁻"},
+        {title:"碘化银的沉淀溶解平衡", chem:"AgI(s) ⇌ Ag⁺ + I⁻"},
+        {title:"硫酸钡的沉淀溶解平衡", chem:"BaSO₄(s) ⇌ Ba²⁺ + SO₄²⁻"},
+        {title:"碳酸钙的沉淀溶解平衡", chem:"CaCO₃(s) ⇌ Ca²⁺ + CO₃²⁻"},
+        {title:"氢氧化铁的沉淀溶解平衡", chem:"Fe(OH)₃(s) ⇌ Fe³⁺ + 3OH⁻"},
+        {title:"氢氧化铜的沉淀溶解平衡", chem:"Cu(OH)₂(s) ⇌ Cu²⁺ + 2OH⁻"},
+        {title:"氢氧化铝的沉淀溶解平衡", chem:"Al(OH)₃(s) ⇌ Al³⁺ + 3OH⁻"},
+        {title:"氯化银转化为溴化银", chem:"AgCl(s) + Br⁻ ⇌ AgBr(s) + Cl⁻"},
+        {title:"溴化银转化为碘化银", chem:"AgBr(s) + I⁻ ⇌ AgI(s) + Br⁻"},
+        {title:"氯化银转化为碘化银", chem:"AgCl(s) + I⁻ ⇌ AgI(s) + Cl⁻"},
+        {title:"氢氧化镁与盐酸反应", chem:"Mg(OH)₂ + 2HCl = MgCl₂ + 2H₂O", ion:"Mg(OH)₂ + 2H⁺ = Mg²⁺ + 2H₂O"},
+        {title:"碳酸钙与盐酸反应", chem:"CaCO₃ + 2HCl = CaCl₂ + H₂O + CO₂↑", ion:"CaCO₃ + 2H⁺ = Ca²⁺ + H₂O + CO₂↑"},
+        {title:"硫酸钡转化为碳酸钡", chem:"BaSO₄(s) + Na₂CO₃(aq) ⇌ BaCO₃(s) + Na₂SO₄(aq)"},
+        {title:"明矾净水原理", chem:"Al³⁺ + 3H₂O ⇌ Al(OH)₃(胶体) + 3H⁺"},
+        {title:"泡沫灭火器总反应", chem:"Al₂(SO₄)₃ + 6NaHCO₃ = 2Al(OH)₃↓ + 3Na₂SO₄ + 6CO₂↑"},
+        {title:"锅炉除垢（硫酸钙转化为碳酸钙）", chem:"CaSO₄ + Na₂CO₃ = CaCO₃↓ + Na₂SO₄"},
+        {title:"pH的定义式", chem:"pH = -lg c(H⁺)"},
+        {title:"由pH求氢离子浓度", chem:"c(H⁺) = 10⁻pH"},
+        {title:"水的离子积（25℃）", chem:"K𝓌 = c(H⁺)·c(OH⁻) = 1.0×10⁻¹⁴"},
+        {title:"pH与pOH的关系", chem:"pH + pOH = 14"},
+        {title:"溶度积表达式（氯化银）", chem:"Ksp(AgCl) = c(Ag⁺)·c(Cl⁻)"},
+        {title:"酸碱中和滴定计算", chem:"c(待测)·V(待测) = c(标准)·V(标准)"}
       ]
     },
     {
       group: "第四章 化学反应与电能",
       items: [
         {title:"锌铜原电池反应", chem:"Zn + Cu²⁺ = Zn²⁺ + Cu"},
+        {title:"锌与稀硫酸反应", chem:"Zn + 2H⁺ = Zn²⁺ + H₂↑"},
+        {title:"铜与硝酸银溶液反应", chem:"Cu + 2Ag⁺ = Cu²⁺ + 2Ag"},
+        {title:"铁与硫酸铜溶液反应", chem:"Fe + Cu²⁺ = Fe²⁺ + Cu"},
         {title:"氢氧燃料电池总反应（酸性）", chem:"2H₂ + O₂ = 2H₂O", ion:"负极：H₂ - 2e⁻ = 2H⁺；正极：1/2 O₂ + 2H⁺ + 2e⁻ = H₂O"},
         {title:"氢氧燃料电池总反应（碱性）", chem:"2H₂ + O₂ = 2H₂O", ion:"负极：H₂ + 2OH⁻ - 2e⁻ = 2H₂O；正极：1/2 O₂ + H₂O + 2e⁻ = 2OH⁻"},
         {title:"甲醇燃料电池（酸性）", chem:"2CH₃OH + 3O₂ = 2CO₂ + 4H₂O", ion:"负极：CH₃OH + H₂O - 6e⁻ = CO₂ + 6H⁺；正极：3/2 O₂ + 6H⁺ + 6e⁻ = 3H₂O"},
+        {title:"甲烷燃料电池（碱性）", chem:"CH₄ + 2O₂ + 2OH⁻ = CO₃²⁻ + 3H₂O", ion:"负极：CH₄ + 10OH⁻ - 8e⁻ = CO₃²⁻ + 7H₂O；正极：2O₂ + 4H₂O + 8e⁻ = 8OH⁻"},
         {title:"铅酸蓄电池放电", chem:"Pb + PbO₂ + 2H₂SO₄ = 2PbSO₄ + 2H₂O", ion:"负极：Pb + SO₄²⁻ - 2e⁻ = PbSO₄；正极：PbO₂ + 4H⁺ + SO₄²⁻ + 2e⁻ = PbSO₄ + 2H₂O"},
+        {title:"铅酸蓄电池充电", chem:"2PbSO₄ + 2H₂O =充电= Pb + PbO₂ + 2H₂SO₄"},
         {title:"碱性锌锰电池", chem:"Zn + 2MnO₂ + 2H₂O = 2MnO(OH) + Zn(OH)₂", ion:"负极：Zn + 2OH⁻ - 2e⁻ = Zn(OH)₂；正极：2MnO₂ + 2H₂O + 2e⁻ = 2MnO(OH) + 2OH⁻"},
         {title:"电解水", chem:"2H₂O =通电= 2H₂↑ + O₂↑"},
         {title:"电解氯化铜溶液", chem:"CuCl₂ =通电= Cu + Cl₂↑", ion:"Cu²⁺ + 2Cl⁻ =通电= Cu + Cl₂↑"},
         {title:"电解饱和食盐水", chem:"2NaCl + 2H₂O =通电= 2NaOH + H₂↑ + Cl₂↑", ion:"2Cl⁻ + 2H₂O =通电= 2OH⁻ + H₂↑ + Cl₂↑"},
         {title:"电解熔融氯化钠", chem:"2NaCl(熔融) =通电= 2Na + Cl₂↑"},
         {title:"电解熔融氧化铝", chem:"2Al₂O₃(熔融) =通电= 4Al + 3O₂↑"},
+        {title:"电解熔融氯化镁", chem:"MgCl₂(熔融) =通电= Mg + Cl₂↑"},
+        {title:"电解硫酸铜溶液", chem:"2CuSO₄ + 2H₂O =通电= 2Cu + O₂↑ + 2H₂SO₄"},
+        {title:"电解硝酸银溶液", chem:"4AgNO₃ + 2H₂O =通电= 4Ag + O₂↑ + 4HNO₃"},
         {title:"电镀铜（阳极溶解）", chem:"Cu - 2e⁻ = Cu²⁺", ion:"阳极"},
         {title:"电镀铜（阴极析出）", chem:"Cu²⁺ + 2e⁻ = Cu", ion:"阴极"},
+        {title:"粗铜精炼（阳极溶解）", chem:"Cu - 2e⁻ = Cu²⁺", ion:"阳极：粗铜"},
+        {title:"粗铜精炼（阴极析出）", chem:"Cu²⁺ + 2e⁻ = Cu", ion:"阴极：纯铜"},
         {title:"钢铁吸氧腐蚀", chem:"2Fe + O₂ + 2H₂O = 2Fe(OH)₂"},
-        {title:"钢铁析氢腐蚀", chem:"Fe + 2H⁺ = Fe²⁺ + H₂↑"}
+        {title:"氢氧化亚铁继续被氧化", chem:"4Fe(OH)₂ + O₂ + 2H₂O = 4Fe(OH)₃"},
+        {title:"氢氧化铁脱水生成铁锈", chem:"2Fe(OH)₃ =Δ= Fe₂O₃ + 3H₂O"},
+        {title:"钢铁析氢腐蚀", chem:"Fe + 2H⁺ = Fe²⁺ + H₂↑"},
+        {title:"牺牲阳极的阴极保护法", chem:"Zn - 2e⁻ = Zn²⁺", ion:"负极：锌被腐蚀；正极：O₂ + 2H₂O + 4e⁻ = 4OH⁻"},
+        {title:"外加电流的阴极保护法", chem:"2H₂O + O₂ + 4e⁻ = 4OH⁻", ion:"被保护金属作阴极，接电源负极"}
       ]
     }
   ],
@@ -1338,24 +1725,57 @@ const EQ_DATA = {
       group: "第一章 原子结构与性质",
       items: [
         {title:"钠与氯气反应（离子键的形成）", chem:"2Na + Cl₂ =点燃= 2NaCl"},
-        {title:"氢气与氯气反应（共价键的形成）", chem:"H₂ + Cl₂ =点燃= 2HCl"}
+        {title:"氢气与氯气反应（共价键的形成）", chem:"H₂ + Cl₂ =点燃= 2HCl"},
+        {title:"钠在氧气中燃烧", chem:"2Na + O₂ =点燃= Na₂O₂"},
+        {title:"镁在氧气中燃烧", chem:"2Mg + O₂ =点燃= 2MgO"},
+        {title:"铝在氧气中燃烧", chem:"4Al + 3O₂ =点燃= 2Al₂O₃"}
       ]
     },
     {
       group: "第二章 分子结构与性质",
       items: [
+        {title:"氢气与氯气反应", chem:"H₂ + Cl₂ = 2HCl"},
+        {title:"氮气与氢气反应", chem:"N₂ + 3H₂ = 2NH₃"},
+        {title:"氢气与氧气反应", chem:"2H₂ + O₂ = 2H₂O"},
         {title:"银氨配离子的形成", chem:"Ag⁺ + 2NH₃·H₂O = [Ag(NH₃)₂]⁺ + 2H₂O"},
         {title:"铁离子与硫氰化钾显色", chem:"Fe³⁺ + 3SCN⁻ ⇌ Fe(SCN)₃"},
         {title:"铜氨配离子的形成", chem:"Cu²⁺ + 4NH₃ = [Cu(NH₃)₄]²⁺"},
         {title:"四水合铜离子转化为四氨合铜离子", chem:"[Cu(H₂O)₄]²⁺ + 4NH₃ = [Cu(NH₃)₄]²⁺ + 4H₂O"},
         {title:"氢氧化铜溶于氨水", chem:"Cu(OH)₂ + 4NH₃·H₂O = [Cu(NH₃)₄]²⁺ + 2OH⁻ + 4H₂O"},
         {title:"氯化银溶于氨水", chem:"AgCl + 2NH₃ = [Ag(NH₃)₂]Cl"},
-        {title:"向硫酸铜溶液逐滴加氨水（先沉淀）", chem:"Cu²⁺ + 2NH₃·H₂O = Cu(OH)₂↓ + 2NH₄⁺"}
+        {title:"向硫酸铜溶液逐滴加氨水（先沉淀）", chem:"Cu²⁺ + 2NH₃·H₂O = Cu(OH)₂↓ + 2NH₄⁺"},
+        {title:"氟化氢溶于水", chem:"HF + H₂O ⇌ H₃O⁺ + F⁻"},
+        {title:"氨气溶于水", chem:"NH₃ + H₂O ⇌ NH₄⁺ + OH⁻"},
+        {title:"水的自偶电离", chem:"H₂O + H₂O ⇌ H₃O⁺ + OH⁻"},
+        {title:"氯化氢溶于水", chem:"HCl + H₂O = H₃O⁺ + Cl⁻"}
       ]
     },
     {
       group: "第三章 晶体结构与性质",
       items: [
+        {title:"二氧化硅与氢氧化钠反应", chem:"SiO₂ + 2NaOH = Na₂SiO₃ + H₂O"},
+        {title:"二氧化硅与氢氟酸反应", chem:"SiO₂ + 4HF = SiF₄↑ + 2H₂O"},
+        {title:"二氧化硅与碳酸钙高温反应", chem:"SiO₂ + CaCO₃ =高温= CaSiO₃ + CO₂↑"},
+        {title:"硅与氢氧化钠溶液反应", chem:"Si + 2NaOH + H₂O = Na₂SiO₃ + 2H₂↑"},
+        {title:"硅酸钠溶液中通入二氧化碳", chem:"Na₂SiO₃ + CO₂ + H₂O = H₂SiO₃↓ + Na₂CO₃"},
+        {title:"碳酸钙高温分解", chem:"CaCO₃ =高温= CaO + CO₂↑"},
+        {title:"电解熔融氯化钠", chem:"2NaCl(熔融) =电解= 2Na + Cl₂↑"},
+        {title:"电解熔融氧化铝", chem:"2Al₂O₃(熔融) =电解= 4Al + 3O₂↑"},
+        {title:"钠与氯气反应", chem:"2Na + Cl₂ =点燃= 2NaCl"},
+        {title:"氢气与氧气反应", chem:"2H₂ + O₂ =点燃= 2H₂O"},
+        {title:"石墨转化为金刚石", chem:"C(石墨) =高温高压/催化剂= C(金刚石)"},
+        {title:"二氧化硅与碳高温反应", chem:"SiO₂ + 2C =高温= Si + 2CO↑"},
+        {title:"二氧化硅与碳高温反应（生成碳化硅）", chem:"SiO₂ + 3C =高温= SiC + 2CO↑"},
+        {title:"镁在二氧化碳中燃烧", chem:"2Mg + CO₂ =点燃= 2MgO + C"},
+        {title:"镁与二氧化硅反应", chem:"2Mg + SiO₂ =Δ= 2MgO + Si"},
+        {title:"铝热反应", chem:"2Al + Fe₂O₃ =高温= Al₂O₃ + 2Fe"},
+        {title:"晶体硅的制备（粗硅）", chem:"SiO₂ + 2C =高温= Si + 2CO↑"},
+        {title:"晶体硅的制备（四氯化硅）", chem:"Si + 2Cl₂ =Δ= SiCl₄"},
+        {title:"晶体硅的制备（还原）", chem:"SiCl₄ + 2H₂ =高温= Si + 4HCl"},
+        {title:"氮化硅的制备", chem:"3Si + 2N₂ =高温= Si₃N₄"},
+        {title:"碳化硅的制备", chem:"Si + C =高温= SiC"},
+        {title:"二氧化硅与碳酸钠高温反应", chem:"SiO₂ + Na₂CO₃ =高温= Na₂SiO₃ + CO₂↑"},
+        {title:"硅酸受热分解", chem:"H₂SiO₃ =Δ= SiO₂ + H₂O"}
       ]
     }
   ],
@@ -1363,114 +1783,497 @@ const EQ_DATA = {
     {
       group: "第一章 有机化合物的结构特点与研究方法",
       items: [
+        {title:"烃的燃烧通式", chem:"CₓHᵧ + (x + y/4)O₂ =点燃= xCO₂ + y/2 H₂O"},
+        {title:"烃的含氧衍生物的燃烧通式", chem:"CₓHᵧO𝓏 + (x + y/4 - z/2)O₂ =点燃= xCO₂ + y/2 H₂O"},
+        {title:"甲烷燃烧", chem:"CH₄ + 2O₂ =点燃= CO₂ + 2H₂O"},
+        {title:"乙烯燃烧", chem:"C₂H₄ + 3O₂ =点燃= 2CO₂ + 2H₂O"},
+        {title:"乙炔燃烧", chem:"2C₂H₂ + 5O₂ =点燃= 4CO₂ + 2H₂O"},
+        {title:"苯燃烧", chem:"2C₆H₆ + 15O₂ =点燃= 12CO₂ + 6H₂O"},
+        {title:"乙醇燃烧", chem:"C₂H₅OH + 3O₂ =点燃= 2CO₂ + 3H₂O"},
+        {title:"乙酸燃烧", chem:"CH₃COOH + 2O₂ =点燃= 2CO₂ + 2H₂O"},
+        {title:"葡萄糖燃烧", chem:"C₆H₁₂O₆ + 6O₂ =点燃= 6CO₂ + 6H₂O"}
       ]
     },
     {
       group: "第二章 烃",
       items: [
         {title:"甲烷燃烧", chem:"CH₄ + 2O₂ =点燃= CO₂ + 2H₂O"},
-        {title:"甲烷与氯气光照取代", chem:"CH₄ + Cl₂ =光照= CH₃Cl + HCl"},
+        {title:"甲烷与氯气光照取代（一氯甲烷）", chem:"CH₄ + Cl₂ =光照= CH₃Cl + HCl"},
+        {title:"一氯甲烷继续取代（二氯甲烷）", chem:"CH₃Cl + Cl₂ =光照= CH₂Cl₂ + HCl"},
+        {title:"二氯甲烷继续取代（三氯甲烷）", chem:"CH₂Cl₂ + Cl₂ =光照= CHCl₃ + HCl"},
+        {title:"三氯甲烷继续取代（四氯化碳）", chem:"CHCl₃ + Cl₂ =光照= CCl₄ + HCl"},
+        {title:"乙烷燃烧", chem:"2C₂H₆ + 7O₂ =点燃= 4CO₂ + 6H₂O"},
+        {title:"丙烷燃烧", chem:"C₃H₈ + 5O₂ =点燃= 3CO₂ + 4H₂O"},
+        {title:"丁烷燃烧", chem:"2C₄H₁₀ + 13O₂ =点燃= 8CO₂ + 10H₂O"},
         {title:"乙烯燃烧", chem:"C₂H₄ + 3O₂ =点燃= 2CO₂ + 2H₂O"},
         {title:"乙烯与溴水加成", chem:"CH₂=CH₂ + Br₂ → CH₂BrCH₂Br"},
+        {title:"乙烯与氢气加成", chem:"CH₂=CH₂ + H₂ =催化剂/Δ= CH₃CH₃"},
+        {title:"乙烯与氯化氢加成", chem:"CH₂=CH₂ + HCl =催化剂/Δ= CH₃CH₂Cl"},
         {title:"乙烯与水加成", chem:"CH₂=CH₂ + H₂O =催化剂/Δ= CH₃CH₂OH"},
         {title:"乙烯聚合", chem:"nCH₂=CH₂ =催化剂= [-CH₂-CH₂-]ₙ"},
-        {title:"丙烯与溴的加成", chem:"CH₃CH=CH₂ + Br₂ → CH₃CHBrCH₂Br"},
-        {title:"丙烯与H₂加成", chem:"CH₃CH=CH₂ + H₂ =催化剂/Δ= CH₃CH₂CH₃"},
-        {title:"丙烯与HCl加成", chem:"CH₃CH=CH₂ + HCl =催化剂/Δ= CH₃CHClCH₃"},
+        {title:"丙烯与溴水加成", chem:"CH₃CH=CH₂ + Br₂ → CH₃CHBrCH₂Br"},
+        {title:"丙烯与氢气加成", chem:"CH₃CH=CH₂ + H₂ =催化剂/Δ= CH₃CH₂CH₃"},
+        {title:"丙烯与氯化氢加成", chem:"CH₃CH=CH₂ + HCl =催化剂/Δ= CH₃CHClCH₃"},
+        {title:"丙烯聚合", chem:"nCH₃CH=CH₂ =催化剂= [-CH(CH₃)-CH₂-]ₙ"},
         {title:"乙炔燃烧", chem:"2C₂H₂ + 5O₂ =点燃= 4CO₂ + 2H₂O"},
+        {title:"乙炔与溴加成（1:1）", chem:"CH≡CH + Br₂ → CHBr=CHBr"},
+        {title:"乙炔与溴加成（1:2）", chem:"CH≡CH + 2Br₂ → CHBr₂CHBr₂"},
+        {title:"乙炔与氢气加成（1:1）", chem:"CH≡CH + H₂ =催化剂/Δ= CH₂=CH₂"},
+        {title:"乙炔与氢气加成（1:2）", chem:"CH≡CH + 2H₂ =催化剂/Δ= CH₃CH₃"},
+        {title:"乙炔与氯化氢加成", chem:"CH≡CH + HCl =催化剂/Δ= CH₂=CHCl"},
+        {title:"乙炔与水加成", chem:"CH≡CH + H₂O =催化剂/Δ= CH₃CHO"},
         {title:"乙炔的实验室制法", chem:"CaC₂ + 2H₂O → Ca(OH)₂ + C₂H₂↑"},
-        {title:"乙炔与溴的加成（1:1）", chem:"CH≡CH + Br₂ → CHBr=CHBr"},
-        {title:"乙炔与溴的加成（1:2）", chem:"CH≡CH + 2Br₂ → CHBr₂CHBr₂"},
-        {title:"乙炔与HCl加成", chem:"CH≡CH + HCl =催化剂/Δ= CH₂=CHCl"},
-        {title:"乙炔与H₂O加成", chem:"CH≡CH + H₂O =催化剂/Δ= CH₃CHO"},
+        {title:"乙炔聚合", chem:"nCH≡CH =催化剂= [-CH=CH-]ₙ"},
+        {title:"1,3-丁二烯与溴的1,2-加成", chem:"CH₂=CH-CH=CH₂ + Br₂ → CH₂BrCHBrCH=CH₂"},
+        {title:"1,3-丁二烯与溴的1,4-加成", chem:"CH₂=CH-CH=CH₂ + Br₂ → CH₂BrCH=CHCH₂Br"},
         {title:"1,3-丁二烯加聚", chem:"nCH₂=CH-CH=CH₂ =催化剂= [-CH₂-CH=CH-CH₂-]ₙ"},
+        {title:"异戊二烯加聚", chem:"nCH₂=C(CH₃)-CH=CH₂ =催化剂= [-CH₂-C(CH₃)=CH-CH₂-]ₙ"},
         {title:"苯燃烧", chem:"2C₆H₆ + 15O₂ =点燃= 12CO₂ + 6H₂O"},
         {title:"苯的溴代反应", chem:"C₆H₆ + Br₂ =FeBr₃= C₆H₅Br + HBr"},
+        {title:"苯的氯代反应", chem:"C₆H₆ + Cl₂ =FeCl₃= C₆H₅Cl + HCl"},
         {title:"苯的硝化反应", chem:"C₆H₆ + HNO₃ =浓硫酸/55~60℃= C₆H₅NO₂ + H₂O"},
+        {title:"苯的磺化反应", chem:"C₆H₆ + H₂SO₄(浓) =Δ= C₆H₅SO₃H + H₂O"},
         {title:"苯与氢气加成", chem:"C₆H₆ + 3H₂ =催化剂/Δ= C₆H₁₂"},
         {title:"甲苯的硝化", chem:"C₆H₅CH₃ + 3HNO₃ =浓硫酸/Δ= CH₃C₆H₂(NO₂)₃ + 3H₂O"},
         {title:"甲苯的侧链氧化", chem:"C₆H₅CH₃ + 2KMnO₄ =Δ= C₆H₅COOK + 2MnO₂ + KOH + H₂O"},
-        {title:"苯的同系物与Cl₂的光照取代", chem:"C₆H₅CH₃ + Cl₂ =光照= C₆H₅CH₂Cl + HCl"}
+        {title:"甲苯与氯气的光照取代", chem:"C₆H₅CH₃ + Cl₂ =光照= C₆H₅CH₂Cl + HCl"},
+        {title:"甲苯与溴的溴代反应", chem:"C₆H₅CH₃ + Br₂ =FeBr₃= C₆H₄BrCH₃ + HBr"},
+        {title:"苯乙烯与溴水加成", chem:"C₆H₅CH=CH₂ + Br₂ → C₆H₅CHBrCH₂Br"},
+        {title:"苯乙烯与氢气加成", chem:"C₆H₅CH=CH₂ + H₂ =催化剂/Δ= C₆H₅CH₂CH₃"},
+        {title:"苯乙烯聚合", chem:"nC₆H₅CH=CH₂ =催化剂= [-CH(C₆H₅)-CH₂-]ₙ"}
       ]
     },
     {
       group: "第三章 烃的衍生物",
       items: [
-        {title:"溴乙烷的水解（取代）", chem:"CH₃CH₂Br + NaOH →水/Δ CH₃CH₂OH + NaBr"},
-        {title:"溴乙烷的消去", chem:"CH₃CH₂Br + NaOH →醇/Δ CH₂=CH₂↑ + NaBr + H₂O"},
+        {title:"溴乙烷的水解（取代）", chem:"CH₃CH₂Br + NaOH =水/Δ= CH₃CH₂OH + NaBr"},
+        {title:"溴乙烷的消去", chem:"CH₃CH₂Br + NaOH =醇/Δ= CH₂=CH₂↑ + NaBr + H₂O"},
+        {title:"溴乙烷与氰化钠取代", chem:"CH₃CH₂Br + NaCN → CH₃CH₂CN + NaBr"},
+        {title:"溴乙烷与氨反应", chem:"CH₃CH₂Br + NH₃ → CH₃CH₂NH₂ + HBr"},
+        {title:"1,2-二溴乙烷的消去", chem:"CH₂BrCH₂Br + 2NaOH =醇/Δ= CH≡CH↑ + 2NaBr + 2H₂O"},
+        {title:"乙醇与钠反应", chem:"2CH₃CH₂OH + 2Na → 2CH₃CH₂ONa + H₂↑"},
+        {title:"乙醇与溴化氢反应", chem:"CH₃CH₂OH + HBr =Δ= CH₃CH₂Br + H₂O"},
+        {title:"乙醇催化氧化", chem:"2CH₃CH₂OH + O₂ =Cu/Δ= 2CH₃CHO + 2H₂O"},
         {title:"乙醇的消去（分子内脱水）", chem:"CH₃CH₂OH =浓硫酸/170℃= CH₂=CH₂↑ + H₂O"},
         {title:"乙醇的分子间脱水", chem:"2CH₃CH₂OH =浓硫酸/140℃= CH₃CH₂OCH₂CH₃ + H₂O"},
+        {title:"乙醇燃烧", chem:"C₂H₅OH + 3O₂ =点燃= 2CO₂ + 3H₂O"},
+        {title:"甲醇与钠反应", chem:"2CH₃OH + 2Na → 2CH₃ONa + H₂↑"},
+        {title:"甲醇催化氧化", chem:"2CH₃OH + O₂ =Cu/Δ= 2HCHO + 2H₂O"},
+        {title:"甲醇燃烧", chem:"2CH₃OH + 3O₂ =点燃= 2CO₂ + 4H₂O"},
+        {title:"乙二醇与钠反应", chem:"HOCH₂CH₂OH + 2Na → NaOCH₂CH₂ONa + H₂↑"},
+        {title:"丙三醇与钠反应", chem:"2C₃H₅(OH)₃ + 6Na → 2C₃H₅(ONa)₃ + 3H₂↑"},
         {title:"苯酚与钠反应", chem:"2C₆H₅OH + 2Na → 2C₆H₅ONa + H₂↑"},
         {title:"苯酚与氢氧化钠反应", chem:"C₆H₅OH + NaOH → C₆H₅ONa + H₂O"},
         {title:"苯酚钠溶液中通入二氧化碳", chem:"C₆H₅ONa + CO₂ + H₂O → C₆H₅OH + NaHCO₃"},
+        {title:"苯酚与碳酸钠反应", chem:"C₆H₅OH + Na₂CO₃ → C₆H₅ONa + NaHCO₃"},
         {title:"苯酚与浓溴水反应", chem:"C₆H₅OH + 3Br₂ → C₆H₂Br₃OH↓ + 3HBr"},
+        {title:"苯酚的硝化反应", chem:"C₆H₅OH + 3HNO₃(浓) =Δ= C₆H₂(NO₂)₃OH↓ + 3H₂O"},
+        {title:"苯酚与氢气加成", chem:"C₆H₅OH + 3H₂ =Ni/Δ= C₆H₁₁OH"},
+        {title:"乙醛与氢气加成", chem:"CH₃CHO + H₂ =Ni/Δ= CH₃CH₂OH"},
+        {title:"乙醛催化氧化", chem:"2CH₃CHO + O₂ =催化剂/Δ= 2CH₃COOH"},
         {title:"乙醛的银镜反应", chem:"CH₃CHO + 2Ag(NH₃)₂OH =Δ= CH₃COONH₄ + 2Ag↓ + 3NH₃ + H₂O"},
         {title:"乙醛与新制氢氧化铜反应", chem:"CH₃CHO + 2Cu(OH)₂ =Δ= CH₃COOH + Cu₂O↓ + 2H₂O"},
         {title:"甲醛的银镜反应", chem:"HCHO + 4Ag(NH₃)₂OH =Δ= (NH₄)₂CO₃ + 4Ag↓ + 6NH₃ + 2H₂O"},
+        {title:"甲醛与新制氢氧化铜反应", chem:"HCHO + 2Cu(OH)₂ + NaOH =Δ= HCOONa + Cu₂O↓ + 3H₂O"},
+        {title:"甲醛与氢气加成", chem:"HCHO + H₂ =Ni/Δ= CH₃OH"},
+        {title:"甲醛催化氧化", chem:"2HCHO + O₂ =催化剂/Δ= 2HCOOH"},
         {title:"甲酸的银镜反应", chem:"HCOOH + 2Ag(NH₃)₂OH =Δ= (NH₄)₂CO₃ + 2Ag↓ + 2NH₃ + H₂O"},
+        {title:"甲酸与新制氢氧化铜反应", chem:"HCOOH + 2Cu(OH)₂ =Δ= CO₂↑ + Cu₂O↓ + 3H₂O"},
+        {title:"甲酸与氢氧化钠反应", chem:"HCOOH + NaOH = HCOONa + H₂O"},
+        {title:"甲酸与碳酸钠反应", chem:"2HCOOH + Na₂CO₃ = 2HCOONa + H₂O + CO₂↑"},
+        {title:"甲酸与甲醇酯化", chem:"HCOOH + CH₃OH ⇌ 浓硫酸/Δ= HCOOCH₃ + H₂O"},
+        {title:"丙酮与氢气加成", chem:"CH₃COCH₃ + H₂ =Ni/Δ= CH₃CH(OH)CH₃"},
+        {title:"乙酸与氢氧化钠反应", chem:"CH₃COOH + NaOH = CH₃COONa + H₂O"},
+        {title:"乙酸与碳酸钠反应", chem:"2CH₃COOH + Na₂CO₃ = 2CH₃COONa + H₂O + CO₂↑"},
+        {title:"乙酸与碳酸氢钠反应", chem:"CH₃COOH + NaHCO₃ = CH₃COONa + H₂O + CO₂↑"},
+        {title:"乙酸与碳酸钙反应", chem:"2CH₃COOH + CaCO₃ = (CH₃COO)₂Ca + H₂O + CO₂↑"},
+        {title:"乙酸与镁反应", chem:"2CH₃COOH + Mg = (CH₃COO)₂Mg + H₂↑"},
+        {title:"乙酸与氧化钙反应", chem:"2CH₃COOH + CaO = (CH₃COO)₂Ca + H₂O"},
+        {title:"乙酸与乙醇酯化", chem:"CH₃COOH + CH₃CH₂OH ⇌ 浓硫酸/Δ= CH₃COOCH₂CH₃ + H₂O"},
+        {title:"乙酸与甲醇酯化", chem:"CH₃COOH + CH₃OH ⇌ 浓硫酸/Δ= CH₃COOCH₃ + H₂O"},
         {title:"乙酸乙酯的酸性水解", chem:"CH₃COOC₂H₅ + H₂O ⇌ 稀硫酸/Δ= CH₃COOH + C₂H₅OH"},
         {title:"乙酸乙酯的碱性水解（皂化）", chem:"CH₃COOC₂H₅ + NaOH =Δ= CH₃COONa + C₂H₅OH"},
+        {title:"乙酸甲酯的碱性水解", chem:"CH₃COOCH₃ + NaOH =Δ= CH₃COONa + CH₃OH"},
+        {title:"甲酸乙酯的碱性水解", chem:"HCOOC₂H₅ + NaOH =Δ= HCOONa + C₂H₅OH"},
+        {title:"甲酸乙酯的酸性水解", chem:"HCOOC₂H₅ + H₂O ⇌ 稀硫酸/Δ= HCOOH + C₂H₅OH"},
+        {title:"乙酸乙酯燃烧", chem:"CH₃COOC₂H₅ + 5O₂ =点燃= 4CO₂ + 4H₂O"},
         {title:"油脂的皂化反应", chem:"(C₁₇H₃₅COO)₃C₃H₅ + 3NaOH =Δ= 3C₁₇H₃₅COONa + C₃H₅(OH)₃"},
-        {title:"乙炔与HCN加成（碳链增长）", chem:"CH≡CH + HCN =催化剂= CH₂=CHCN"},
-        {title:"丙烯腈水解", chem:"CH₂=CHCN + H₂O + H⁺ =Δ= CH₂=CHCOOH + NH₄⁺"},
-        {title:"溴乙烷与NaCN取代", chem:"CH₃CH₂Br + NaCN → CH₃CH₂CN + NaBr"},
-        {title:"丙腈水解", chem:"CH₃CH₂CN + 2H₂O + H⁺ =Δ= CH₃CH₂COOH + NH₄⁺"}
+        {title:"油酸甘油酯的氢化", chem:"(C₁₇H₃₃COO)₃C₃H₅ + 3H₂ =Ni/Δ= (C₁₇H₃₅COO)₃C₃H₅"},
+        {title:"油酸甘油酯的皂化", chem:"(C₁₇H₃₃COO)₃C₃H₅ + 3NaOH =Δ= 3C₁₇H₃₃COONa + C₃H₅(OH)₃"},
+        {title:"硬脂酸与碳酸钠反应", chem:"2C₁₇H₃₅COOH + Na₂CO₃ = 2C₁₇H₃₅COONa + H₂O + CO₂↑"},
+        {title:"肥皂与硬水中的钙离子反应", chem:"2C₁₇H₃₅COONa + Ca²⁺ = (C₁₇H₃₅COO)₂Ca↓ + 2Na⁺"},
+        {title:"酯化反应通式", chem:"RCOOH + R'OH ⇌ 浓硫酸/Δ= RCOOR' + H₂O"},
+        {title:"酯的碱性水解通式", chem:"RCOOR' + NaOH =Δ= RCOONa + R'OH"},
+        {title:"醛的银镜反应通式", chem:"RCHO + 2Ag(NH₃)₂OH =Δ= RCOONH₄ + 2Ag↓ + 3NH₃ + H₂O"},
+        {title:"醛与新制氢氧化铜反应通式", chem:"RCHO + 2Cu(OH)₂ + NaOH =Δ= RCOONa + Cu₂O↓ + 3H₂O"}
       ]
     },
     {
       group: "第四章 生物大分子",
       items: [
-        {title:"蔗糖的水解", chem:"C₁₂H₂₂O₁₁ + H₂O =稀硫酸/Δ= C₆H₁₂O₆(葡萄糖) + C₆H₁₂O₆(果糖)"},
-        {title:"麦芽糖的水解", chem:"C₁₂H₂₂O₁₁ + H₂O =稀硫酸/Δ= 2C₆H₁₂O₆(葡萄糖)"},
-        {title:"淀粉的水解", chem:"(C₆H₁₀O₅)ₙ + nH₂O =稀硫酸/Δ= nC₆H₁₂O₆(葡萄糖)"},
-        {title:"葡萄糖与新制Cu(OH)₂", chem:"CH₂OH(CHOH)₄CHO + 2Cu(OH)₂ + NaOH =Δ= CH₂OH(CHOH)₄COONa + Cu₂O↓ + 3H₂O"},
-        {title:"葡萄糖与银氨溶液", chem:"CH₂OH(CHOH)₄CHO + 2Ag(NH₃)₂OH =Δ= CH₂OH(CHOH)₄COONH₄ + 2Ag↓ + 3NH₃ + H₂O"},
-        {title:"蛋白质水解", chem:"蛋白质 + nH₂O =酸/碱/酶= n氨基酸"}
+        {title:"葡萄糖燃烧", chem:"C₆H₁₂O₆ + 6O₂ =点燃= 6CO₂ + 6H₂O"},
+        {title:"葡萄糖发酵", chem:"C₆H₁₂O₆ =酒化酶= 2C₂H₅OH + 2CO₂↑"},
+        {title:"葡萄糖与新制氢氧化铜反应", chem:"CH₂OH(CHOH)₄CHO + 2Cu(OH)₂ + NaOH =Δ= CH₂OH(CHOH)₄COONa + Cu₂O↓ + 3H₂O"},
+        {title:"葡萄糖与银氨溶液反应", chem:"CH₂OH(CHOH)₄CHO + 2Ag(NH₃)₂OH =Δ= CH₂OH(CHOH)₄COONH₄ + 2Ag↓ + 3NH₃ + H₂O"},
+        {title:"葡萄糖与氢气加成", chem:"CH₂OH(CHOH)₄CHO + H₂ =Ni/Δ= CH₂OH(CHOH)₄CH₂OH"},
+        {title:"葡萄糖氧化为葡萄糖酸", chem:"CH₂OH(CHOH)₄CHO + O₂ =催化剂/Δ= CH₂OH(CHOH)₄COOH"},
+        {title:"果糖的银镜反应", chem:"C₆H₁₂O₆ + 2Ag(NH₃)₂OH =Δ= C₆H₁₂O₇ + 2Ag↓ + 3NH₃ + H₂O"},
+        {title:"蔗糖水解", chem:"C₁₂H₂₂O₁₁ + H₂O =稀硫酸/Δ= C₆H₁₂O₆(葡萄糖) + C₆H₁₂O₆(果糖)"},
+        {title:"麦芽糖水解", chem:"C₁₂H₂₂O₁₁ + H₂O =稀硫酸/Δ= 2C₆H₁₂O₆(葡萄糖)"},
+        {title:"淀粉水解", chem:"(C₆H₁₀O₅)ₙ + nH₂O =稀硫酸/Δ= nC₆H₁₂O₆(葡萄糖)"},
+        {title:"纤维素水解", chem:"(C₆H₁₀O₅)ₙ + nH₂O =稀硫酸/Δ= nC₆H₁₂O₆(葡萄糖)"},
+        {title:"纤维素与硝酸反应（硝化纤维）", chem:"(C₆H₁₀O₅)ₙ + 3nHNO₃ =浓硫酸= [C₆H₇O₂(ONO₂)₃]ₙ + 3nH₂O"},
+        {title:"纤维素与乙酸反应（醋酸纤维）", chem:"(C₆H₁₀O₅)ₙ + 3nCH₃COOH =浓硫酸= [C₆H₇O₂(OCOCH₃)₃]ₙ + 3nH₂O"},
+        {title:"蛋白质水解", chem:"蛋白质 + nH₂O =酸/碱/酶= n氨基酸"},
+        {title:"甘氨酸与甘氨酸缩合", chem:"H₂N-CH₂-COOH + H₂N-CH₂-COOH =Δ= H₂N-CH₂-CO-NH-CH₂-COOH + H₂O"},
+        {title:"甘氨酸与盐酸反应", chem:"H₂N-CH₂-COOH + HCl = ClH₃N⁺-CH₂-COOH"},
+        {title:"甘氨酸与氢氧化钠反应", chem:"H₂N-CH₂-COOH + NaOH = H₂N-CH₂-COONa + H₂O"},
+        {title:"丙氨酸与丙氨酸缩合", chem:"H₂N-CH(CH₃)-COOH + H₂N-CH(CH₃)-COOH =Δ= H₂N-CH(CH₃)-CO-NH-CH(CH₃)-COOH + H₂O"}
       ]
     },
     {
       group: "第五章 合成高分子",
       items: [
-        {title:"丙烯的加聚", chem:"nCH₃CH=CH₂ =催化剂= [-CH(CH₃)-CH₂-]ₙ"},
-        {title:"苯乙烯的加聚", chem:"nC₆H₅CH=CH₂ =催化剂= [-CH(C₆H₅)-CH₂-]ₙ"},
-        {title:"乙二醇与乙二酸缩聚", chem:"nHOCH₂CH₂OH + nHOOC-COOH =催化剂= [-OCH₂CH₂OOC-CO-]ₙ + 2nH₂O"}
+        {title:"乙烯加聚（聚乙烯）", chem:"nCH₂=CH₂ =催化剂= [-CH₂-CH₂-]ₙ"},
+        {title:"丙烯加聚（聚丙烯）", chem:"nCH₃CH=CH₂ =催化剂= [-CH(CH₃)-CH₂-]ₙ"},
+        {title:"氯乙烯加聚（聚氯乙烯）", chem:"nCH₂=CHCl =催化剂= [-CH₂-CHCl-]ₙ"},
+        {title:"苯乙烯加聚（聚苯乙烯）", chem:"nCH₂=CHC₆H₅ =催化剂= [-CH₂-CH(C₆H₅)-]ₙ"},
+        {title:"甲基丙烯酸甲酯加聚（有机玻璃）", chem:"nCH₂=C(CH₃)COOCH₃ =催化剂= [-CH₂-C(CH₃)(COOCH₃)-]ₙ"},
+        {title:"四氟乙烯加聚（聚四氟乙烯）", chem:"nCF₂=CF₂ =催化剂= [-CF₂-CF₂-]ₙ"},
+        {title:"丙烯腈加聚（聚丙烯腈）", chem:"nCH₂=CHCN =催化剂= [-CH₂-CH(CN)-]ₙ"},
+        {title:"1,3-丁二烯加聚（顺丁橡胶）", chem:"nCH₂=CH-CH=CH₂ =催化剂= [-CH₂-CH=CH-CH₂-]ₙ"},
+        {title:"异戊二烯加聚（天然橡胶）", chem:"nCH₂=C(CH₃)-CH=CH₂ =催化剂= [-CH₂-C(CH₃)=CH-CH₂-]ₙ"},
+        {title:"丁二烯与苯乙烯共聚（丁苯橡胶）", chem:"nCH₂=CH-CH=CH₂ + nCH₂=CHC₆H₅ =催化剂= [-CH₂-CH=CH-CH₂-CH₂-CH(C₆H₅)-]ₙ"},
+        {title:"乙二醇与对苯二甲酸缩聚（涤纶）", chem:"nHOCH₂CH₂OH + nHOOC-C₆H₄-COOH =催化剂/Δ= [-OCH₂CH₂OOC-C₆H₄-CO-]ₙ + 2nH₂O"},
+        {title:"己二胺与己二酸缩聚（尼龙-66）", chem:"nH₂N-(CH₂)₆-NH₂ + nHOOC-(CH₂)₄-COOH =催化剂/Δ= [-NH-(CH₂)₆-NH-CO-(CH₂)₄-CO-]ₙ + 2nH₂O"},
+        {title:"苯酚与甲醛缩聚（酚醛树脂）", chem:"nC₆H₅OH + nHCHO =催化剂/Δ= [-C₆H₃(OH)-CH₂-]ₙ + nH₂O"},
+        {title:"尿素与甲醛缩聚（脲醛树脂）", chem:"nCO(NH₂)₂ + nHCHO =催化剂/Δ= [-NH-CO-NH-CH₂-]ₙ + nH₂O"},
+        {title:"乳酸缩聚（聚乳酸）", chem:"nCH₃CH(OH)COOH =催化剂/Δ= [-O-CH(CH₃)-CO-]ₙ + nH₂O"},
+        {title:"乙二酸与乙二醇缩聚", chem:"nHOOC-COOH + nHOCH₂CH₂OH =催化剂/Δ= [-CO-CO-O-CH₂-CH₂-O-]ₙ + 2nH₂O"}
       ]
     }
   ],
+  "化学∙俗称": [
+    {
+      group: "必修一 · 第一章 物质及其变化",
+      items: [
+        {title:"胆矾 / 蓝矾 / 五水硫酸铜", chem:"CuSO₄·5H₂O"},
+        {title:"绿矾 / 七水硫酸亚铁", chem:"FeSO₄·7H₂O"},
+        {title:"明矾 / 钾明矾", chem:"KAl(SO₄)₂·12H₂O"},
+        {title:"芒硝 / 十水硫酸钠", chem:"Na₂SO₄·10H₂O"},
+        {title:"石膏 / 生石膏", chem:"CaSO₄·2H₂O"},
+        {title:"熟石膏 / 烧石膏", chem:"2CaSO₄·H₂O"},
+        {title:"重晶石", chem:"BaSO₄"},
+        {title:"石灰石 / 大理石", chem:"CaCO₃"},
+        {title:"生石灰", chem:"CaO"},
+        {title:"熟石灰 / 消石灰", chem:"Ca(OH)₂"}
+      ]
+    },
+    {
+      group: "必修一 · 第二章 海水中的重要元素——钠和氯",
+      items: [
+        {title:"食盐", chem:"NaCl"},
+        {title:"纯碱 / 苏打", chem:"Na₂CO₃"},
+        {title:"小苏打", chem:"NaHCO₃"},
+        {title:"烧碱 / 火碱 / 苛性钠", chem:"NaOH"},
+        {title:"生石灰", chem:"CaO"},
+        {title:"熟石灰 / 消石灰", chem:"Ca(OH)₂"},
+        {title:"漂白粉", chem:"Ca(ClO)₂和CaCl₂的混合物"},
+        {title:"漂白液 / 84消毒液", chem:"NaClO溶液"},
+        {title:"氯仿", chem:"CHCl₃"},
+        {title:"四氯化碳", chem:"CCl₄"}
+      ]
+    },
+    {
+      group: "必修一 · 第三章 铁 金属材料",
+      items: [
+        {title:"铁红", chem:"Fe₂O₃"},
+        {title:"磁性氧化铁", chem:"Fe₃O₄"},
+        {title:"铁锈", chem:"Fe₂O₃·xH₂O"},
+        {title:"赤铁矿", chem:"Fe₂O₃"},
+        {title:"磁铁矿", chem:"Fe₃O₄"},
+        {title:"菱铁矿", chem:"FeCO₃"},
+        {title:"刚玉", chem:"Al₂O₃"},
+        {title:"铝土矿", chem:"Al₂O₃"},
+        {title:"明矾", chem:"KAl(SO₄)₂·12H₂O"},
+        {title:"胆矾 / 蓝矾", chem:"CuSO₄·5H₂O"}
+      ]
+    },
+    {
+      group: "必修一 · 第四章 物质结构 元素周期律",
+      items: [
+        {title:"金刚石 / 石墨 / C₆₀", chem:"C"},
+        {title:"水晶 / 石英 / 玛瑙", chem:"SiO₂"},
+        {title:"水玻璃 / 泡花碱", chem:"Na₂SiO₃水溶液"},
+        {title:"硅胶", chem:"SiO₂·nH₂O"},
+        {title:"金刚砂", chem:"SiC"},
+        {title:"光导纤维", chem:"SiO₂"}
+      ]
+    },
+    {
+      group: "必修二 · 第五章 化工生产中的重要非金属元素",
+      items: [
+        {title:"硫磺", chem:"S"},
+        {title:"石膏", chem:"CaSO₄·2H₂O"},
+        {title:"重晶石", chem:"BaSO₄"},
+        {title:"硝石", chem:"KNO₃"},
+        {title:"纯碱 / 苏打", chem:"Na₂CO₃"},
+        {title:"小苏打", chem:"NaHCO₃"},
+        {title:"石英 / 水晶 / 玛瑙", chem:"SiO₂"},
+        {title:"水玻璃 / 泡花碱", chem:"Na₂SiO₃水溶液"},
+        {title:"硅胶", chem:"SiO₂·nH₂O"},
+        {title:"金刚砂", chem:"SiC"},
+        {title:"光导纤维", chem:"SiO₂"},
+        {title:"液氨", chem:"NH₃"},
+        {title:"氨水", chem:"NH₃·H₂O"},
+        {title:"尿素", chem:"CO(NH₂)₂"},
+        {title:"碳酸氢铵", chem:"NH₄HCO₃"},
+        {title:"硫酸铵", chem:"(NH₄)₂SO₄"},
+        {title:"硝酸铵", chem:"NH₄NO₃"},
+        {title:"王水", chem:"浓盐酸与浓硝酸体积比3:1"}
+      ]
+    },
+    {
+      group: "必修二 · 第六章 化学反应与能量",
+      items: [
+        {title:"水煤气", chem:"CO和H₂"},
+        {title:"天然气 / 沼气", chem:"CH₄"},
+        {title:"焦炉气", chem:"H₂、CH₄、CO等"},
+        {title:"液化石油气", chem:"丙烷、丁烷等"},
+        {title:"干冰", chem:"CO₂"},
+        {title:"石灰石 / 大理石", chem:"CaCO₃"},
+        {title:"生石灰", chem:"CaO"},
+        {title:"熟石灰 / 消石灰", chem:"Ca(OH)₂"},
+        {title:"电石", chem:"CaC₂"}
+      ]
+    },
+    {
+      group: "必修二 · 第七章 有机化合物",
+      items: [
+        {title:"天然气 / 沼气", chem:"CH₄"},
+        {title:"电石", chem:"CaC₂"},
+        {title:"电石气 / 乙炔", chem:"C₂H₂"},
+        {title:"酒精", chem:"C₂H₅OH"},
+        {title:"醋酸 / 冰醋酸", chem:"CH₃COOH"},
+        {title:"福尔马林", chem:"HCHO水溶液"},
+        {title:"甘油 / 丙三醇", chem:"C₃H₅(OH)₃"},
+        {title:"硬脂酸", chem:"C₁₇H₃₅COOH"},
+        {title:"油酸", chem:"C₁₇H₃₃COOH"},
+        {title:"葡萄糖 / 血糖", chem:"C₆H₁₂O₆"},
+        {title:"果糖", chem:"C₆H₁₂O₆"},
+        {title:"蔗糖", chem:"C₁₂H₂₂O₁₁"},
+        {title:"麦芽糖", chem:"C₁₂H₂₂O₁₁"},
+        {title:"淀粉", chem:"(C₆H₁₀O₅)ₙ"},
+        {title:"纤维素", chem:"(C₆H₁₀O₅)ₙ"},
+        {title:"油脂", chem:"高级脂肪酸甘油酯"},
+        {title:"肥皂", chem:"高级脂肪酸钠"},
+        {title:"人造奶油", chem:"氢化植物油"},
+        {title:"聚乙烯", chem:"[-CH₂-CH₂-]ₙ"},
+        {title:"聚氯乙烯", chem:"[-CH₂-CHCl-]ₙ"}
+      ]
+    },
+    {
+      group: "必修二 · 第八章 化学与可持续发展",
+      items: [
+        {title:"煤", chem:"主要含碳的混合物"},
+        {title:"石油", chem:"烃类混合物"},
+        {title:"天然气", chem:"CH₄"},
+        {title:"海水提溴", chem:"Br₂"},
+        {title:"海水提镁", chem:"Mg"},
+        {title:"聚乙烯", chem:"[-CH₂-CH₂-]ₙ"},
+        {title:"聚氯乙烯", chem:"[-CH₂-CHCl-]ₙ"}
+      ]
+    },
+    {
+      group: "选必一 · 第三章 水溶液中的离子反应与平衡",
+      items: [
+        {title:"醋酸 / 冰醋酸", chem:"CH₃COOH"},
+        {title:"氨水", chem:"NH₃·H₂O"},
+        {title:"纯碱 / 苏打", chem:"Na₂CO₃"},
+        {title:"小苏打", chem:"NaHCO₃"},
+        {title:"明矾", chem:"KAl(SO₄)₂·12H₂O"},
+        {title:"泡沫灭火器", chem:"Al₂(SO₄)₃和NaHCO₃"},
+        {title:"熟石灰 / 消石灰", chem:"Ca(OH)₂"},
+        {title:"漂白粉", chem:"Ca(ClO)₂和CaCl₂的混合物"},
+        {title:"84消毒液", chem:"NaClO溶液"},
+        {title:"水垢", chem:"CaCO₃和Mg(OH)₂"},
+        {title:"锅炉除垢剂", chem:"Na₂CO₃"}
+      ]
+    },
+    {
+      group: "选必一 · 第四章 化学反应与电能",
+      items: [
+        {title:"铅酸蓄电池", chem:"Pb、PbO₂、H₂SO₄"},
+        {title:"干电池 / 锌锰电池", chem:"Zn、MnO₂"},
+        {title:"碱性锌锰电池", chem:"Zn、MnO₂、KOH"},
+        {title:"燃料电池", chem:"H₂-O₂燃料电池等"},
+        {title:"锂离子电池", chem:"LiCoO₂、石墨等"},
+        {title:"钢铁吸氧腐蚀", chem:"2Fe + O₂ + 2H₂O = 2Fe(OH)₂"},
+        {title:"钢铁析氢腐蚀", chem:"Fe + 2H⁺ = Fe²⁺ + H₂↑"}
+      ]
+    },
+    {
+      group: "选必二 · 第二章 分子结构与性质",
+      items: [
+        {title:"王水", chem:"浓盐酸与浓硝酸体积比3:1"},
+        {title:"水合铜离子", chem:"[Cu(H₂O)₄]²⁺"},
+        {title:"四氨合铜离子", chem:"[Cu(NH₃)₄]²⁺"},
+        {title:"银氨溶液", chem:"[Ag(NH₃)₂]OH"},
+        {title:"硫氰化铁", chem:"Fe(SCN)₃"}
+      ]
+    },
+    {
+      group: "选必二 · 第三章 晶体结构与性质",
+      items: [
+        {title:"金刚石 / 石墨 / C₆₀ / 石墨烯", chem:"C"},
+        {title:"晶体硅", chem:"Si"},
+        {title:"二氧化硅 / 石英 / 水晶 / 玛瑙", chem:"SiO₂"},
+        {title:"碳化硅 / 金刚砂", chem:"SiC"},
+        {title:"氮化硅", chem:"Si₃N₄"},
+        {title:"干冰", chem:"CO₂"},
+        {title:"冰", chem:"H₂O"},
+        {title:"食盐", chem:"NaCl"},
+        {title:"氯化铯", chem:"CsCl"},
+        {title:"明矾", chem:"KAl(SO₄)₂·12H₂O"},
+        {title:"胆矾 / 蓝矾", chem:"CuSO₄·5H₂O"}
+      ]
+    },
+    {
+      group: "选必三 · 第二章 烃",
+      items: [
+        {title:"天然气 / 沼气", chem:"CH₄"},
+        {title:"电石", chem:"CaC₂"},
+        {title:"电石气 / 乙炔", chem:"C₂H₂"},
+        {title:"乙烯", chem:"C₂H₄"},
+        {title:"丙烯", chem:"C₃H₆"},
+        {title:"1,3-丁二烯", chem:"C₄H₆"},
+        {title:"异戊二烯", chem:"C₅H₈"},
+        {title:"苯", chem:"C₆H₆"},
+        {title:"甲苯", chem:"C₇H₈"},
+        {title:"二甲苯", chem:"C₈H₁₀"},
+        {title:"苯乙烯", chem:"C₈H₈"},
+        {title:"萘", chem:"C₁₀H₈"},
+        {title:"蒽", chem:"C₁₄H₁₀"},
+        {title:"液化石油气", chem:"丙烷、丁烷等"},
+        {title:"焦炉气", chem:"H₂、CH₄、CO等"}
+      ]
+    },
+    {
+      group: "选必三 · 第三章 烃的衍生物",
+      items: [
+        {title:"溴乙烷", chem:"C₂H₅Br"},
+        {title:"酒精", chem:"C₂H₅OH"},
+        {title:"甘油 / 丙三醇", chem:"C₃H₅(OH)₃"},
+        {title:"苯酚 / 石炭酸", chem:"C₆H₅OH"},
+        {title:"福尔马林", chem:"HCHO水溶液"},
+        {title:"蚁酸 / 甲酸", chem:"HCOOH"},
+        {title:"醋酸 / 冰醋酸", chem:"CH₃COOH"},
+        {title:"乙酸乙酯", chem:"CH₃COOC₂H₅"},
+        {title:"硬脂酸", chem:"C₁₇H₃₅COOH"},
+        {title:"油酸", chem:"C₁₇H₃₃COOH"},
+        {title:"软脂酸 / 棕榈酸", chem:"C₁₅H₃₁COOH"},
+        {title:"肥皂", chem:"高级脂肪酸钠"},
+        {title:"人造奶油", chem:"氢化植物油"},
+        {title:"丙酮", chem:"CH₃COCH₃"},
+        {title:"乙醚", chem:"C₂H₅OC₂H₅"},
+        {title:"氯仿", chem:"CHCl₃"},
+        {title:"四氯化碳", chem:"CCl₄"}
+      ]
+    },
+    {
+      group: "选必三 · 第四章 生物大分子",
+      items: [
+        {title:"葡萄糖 / 血糖", chem:"C₆H₁₂O₆"},
+        {title:"果糖", chem:"C₆H₁₂O₆"},
+        {title:"蔗糖", chem:"C₁₂H₂₂O₁₁"},
+        {title:"麦芽糖", chem:"C₁₂H₂₂O₁₁"},
+        {title:"淀粉", chem:"(C₆H₁₀O₅)ₙ"},
+        {title:"纤维素", chem:"(C₆H₁₀O₅)ₙ"},
+        {title:"蛋白质", chem:"氨基酸缩聚物"},
+        {title:"氨基酸", chem:"含氨基和羧基的有机物"},
+        {title:"酶", chem:"蛋白质催化剂"},
+        {title:"核酸", chem:"DNA和RNA"}
+      ]
+    },
+    {
+      group: "选必三 · 第五章 合成高分子",
+      items: [
+        {title:"聚乙烯（PE）", chem:"[-CH₂-CH₂-]ₙ"},
+        {title:"聚丙烯（PP）", chem:"[-CH(CH₃)-CH₂-]ₙ"},
+        {title:"聚氯乙烯（PVC）", chem:"[-CH₂-CHCl-]ₙ"},
+        {title:"聚苯乙烯（PS）", chem:"[-CH₂-CH(C₆H₅)-]ₙ"},
+        {title:"聚四氟乙烯（PTFE / 特氟龙）", chem:"[-CF₂-CF₂-]ₙ"},
+        {title:"聚丙烯腈（PAN）", chem:"[-CH₂-CH(CN)-]ₙ"},
+        {title:"丁苯橡胶（SBR）", chem:"丁二烯与苯乙烯共聚物"},
+        {title:"顺丁橡胶（PB）", chem:"[-CH₂-CH=CH-CH₂-]ₙ"},
+        {title:"天然橡胶", chem:"聚异戊二烯"},
+        {title:"涤纶（PET）", chem:"聚对苯二甲酸乙二醇酯"},
+        {title:"尼龙-66", chem:"聚己二酰己二胺"},
+        {title:"酚醛树脂 / 电木", chem:"[-C₆H₃(OH)-CH₂-]ₙ"},
+        {title:"脲醛树脂", chem:"[-NH-CO-NH-CH₂-]ₙ"},
+        {title:"有机玻璃（PMMA）", chem:"聚甲基丙烯酸甲酯"},
+        {title:"聚乳酸（PLA）", chem:"[-O-CH(CH₃)-CO-]ₙ"}
+      ]
+    }
+  ],
+
   "物理∙必修一": [
     {
       group: "第一章 运动的描述",
       items: [
-        {title:"平均速度", chem:"v = Δx / Δt"},
+        {title:"位移", chem:"Δx = x₂ - x₁（矢量，由初位置指向末位置）"},
+        {title:"平均速度", chem:"v̄ = Δx / Δt（矢量）"},
         {title:"瞬时速度", chem:"v = lim(Δt→0) Δx / Δt"},
-        {title:"加速度", chem:"a = Δv / Δt = (v - v₀) / t"}
+        {title:"速度变化量", chem:"Δv = v - v₀"},
+        {title:"加速度", chem:"a = Δv / Δt = (v - v₀) / t"},
+        {title:"加速度方向", chem:"a 与 Δv 同向；与 v 同向加速，与 v 反向减速"}
       ]
     },
     {
-      group: "第二章 匀变速直线运动",
+      group: "第二章 匀变速直线运动的研究",
       items: [
         {title:"速度公式", chem:"v = v₀ + at"},
         {title:"位移公式", chem:"x = v₀t + ½at²"},
         {title:"速度位移关系", chem:"v² - v₀² = 2ax"},
-        {title:"平均速度公式", chem:"v̄ = (v₀ + v) / 2 = x / t"},
-        {title:"自由落体", chem:"v = gt，h = ½gt²，v² = 2gh"}
+        {title:"平均速度公式", chem:"x = (v₀ + v)t / 2"},
+        {title:"中间时刻速度", chem:"v(t/2) = (v₀ + v) / 2 = x / t"},
+        {title:"中间位置速度", chem:"v(x/2) = √((v₀² + v²) / 2)"},
+        {title:"连续相等时间间隔位移差", chem:"Δx = x₂ - x₁ = aT²"},
+        {title:"打点计时器瞬时速度", chem:"v_n = (x_n + x_{n+1}) / (2T)"},
+        {title:"逐差法求加速度", chem:"a = (x₄+x₅+x₆ - x₁-x₂-x₃) / (9T²)"},
+        {title:"初速度为零的瞬时速度比", chem:"第 1T 末、第 2T 末、第 3T 末速度比 = 1 : 2 : 3 : …"},
+        {title:"初速度为零的位移比", chem:"第 1T 内、第 2T 内、第 3T 内位移比 = 1 : 3 : 5 : …"},
+        {title:"初速度为零的总位移比", chem:"前 1T、前 2T、前 3T 内位移比 = 1 : 4 : 9 : …"},
+        {title:"自由落体", chem:"v = gt，h = ½gt²，v² = 2gh"},
+        {title:"竖直上抛", chem:"v = v₀ - gt，h = v₀t - ½gt²"},
+        {title:"竖直上抛最大高度与时间", chem:"H = v₀² / (2g)，t上 = v₀ / g"}
       ]
     },
     {
       group: "第三章 相互作用——力",
       items: [
         {title:"重力", chem:"G = mg"},
-        {title:"胡克定律", chem:"F = kx"},
+        {title:"胡克定律", chem:"F = kx（x 为形变量）"},
+        {title:"静摩擦力", chem:"0 ≤ f ≤ f_max（大小由平衡条件或牛顿定律决定）"},
         {title:"滑动摩擦力", chem:"f = μN"},
-        {title:"力的合成（余弦定理）", chem:"F = √(F₁² + F₂² + 2F₁F₂cosθ)"}
+        {title:"力的合成范围", chem:"|F₁ - F₂| ≤ F ≤ F₁ + F₂"},
+        {title:"力的合成（余弦定理）", chem:"F = √(F₁² + F₂² + 2F₁F₂cosθ)"},
+        {title:"正交分解", chem:"F_x = Fcosθ，F_y = Fsinθ"},
+        {title:"共点力平衡", chem:"F合 = 0，即 F_x = 0 且 F_y = 0"},
+        {title:"三力平衡", chem:"任意两力的合力与第三个力等大反向"}
       ]
     },
     {
       group: "第四章 运动和力的关系",
       items: [
+        {title:"牛顿第一定律", chem:"一切物体总保持匀速直线运动或静止状态，除非受到外力作用"},
         {title:"牛顿第二定律", chem:"F合 = ma"},
-        {title:"牛顿第三定律", chem:"F = -F'"},
-        {title:"超重与失重", chem:"F_N = m(g + a) 或 m(g - a)"}
+        {title:"牛顿第三定律", chem:"F = -F'（等大反向、同性质、作用在不同物体上）"},
+        {title:"超重", chem:"F_N = m(g + a)（加速度方向向上）"},
+        {title:"失重", chem:"F_N = m(g - a)（加速度方向向下）"},
+        {title:"完全失重", chem:"F_N = 0（a = g，方向向下）"},
+        {title:"连接体整体法", chem:"F外 = (m₁ + m₂ + …)a"},
+        {title:"连接体隔离法", chem:"对单个物体列 F合 = ma 求内力"}
       ]
     }
   ],
@@ -1479,9 +2282,14 @@ const EQ_DATA = {
     {
       group: "第五章 抛体运动",
       items: [
-        {title:"平抛运动水平方向", chem:"x = v₀t"},
-        {title:"平抛运动竖直方向", chem:"y = ½gt²"},
-        {title:"平抛运动合速度", chem:"v = √(v₀² + (gt)²)"}
+        {title:"平抛运动水平方向", chem:"x = v₀t，v_x = v₀"},
+        {title:"平抛运动竖直方向", chem:"y = ½gt²，v_y = gt"},
+        {title:"平抛运动合速度", chem:"v = √(v₀² + (gt)²)"},
+        {title:"平抛速度方向", chem:"tanθ = v_y / v_x = gt / v₀"},
+        {title:"平抛位移方向", chem:"tanα = y / x = gt / (2v₀)"},
+        {title:"平抛轨迹", chem:"y = gx² / (2v₀²)"},
+        {title:"平抛时间", chem:"t = √(2h / g)（由竖直高度决定）"},
+        {title:"斜抛运动", chem:"x = v₀cosθ·t，y = v₀sinθ·t - ½gt²"}
       ]
     },
     {
@@ -1489,28 +2297,43 @@ const EQ_DATA = {
       items: [
         {title:"线速度", chem:"v = 2πr / T = ωr"},
         {title:"角速度", chem:"ω = 2π / T = 2πn"},
+        {title:"周期与频率", chem:"T = 1 / f，ω = 2πf"},
         {title:"向心加速度", chem:"a = v² / r = ω²r = (4π²/T²)r"},
-        {title:"向心力", chem:"F = mv² / r = mω²r"}
+        {title:"向心力", chem:"F = mv² / r = mω²r = m(4π²/T²)r"},
+        {title:"皮带/齿轮传动", chem:"边缘线速度大小相等：v₁ = v₂"},
+        {title:"同轴转动", chem:"角速度相等：ω₁ = ω₂"}
       ]
     },
     {
       group: "第七章 万有引力与宇宙航行",
       items: [
+        {title:"开普勒第三定律", chem:"a³ / T² = k"},
         {title:"万有引力定律", chem:"F = G·m₁m₂ / r²"},
-        {title:"天体表面重力", chem:"mg = G·Mm / R²"},
-        {title:"卫星环绕速度", chem:"G·Mm / r² = mv² / r = mω²r = m(4π²/T²)r"},
-        {title:"第一宇宙速度", chem:"v₁ = √(gR) ≈ 7.9 km/s"}
+        {title:"天体表面重力", chem:"mg = G·Mm / R²，g = GM / R²"},
+        {title:"卫星环绕", chem:"G·Mm / r² = mv² / r = mω²r = m(4π²/T²)r"},
+        {title:"卫星线速度", chem:"v = √(GM / r)"},
+        {title:"卫星角速度", chem:"ω = √(GM / r³)"},
+        {title:"卫星周期", chem:"T = 2π√(r³ / GM)"},
+        {title:"第一宇宙速度", chem:"v₁ = √(gR) = √(GM/R) ≈ 7.9 km/s"},
+        {title:"第二、第三宇宙速度", chem:"v₂ ≈ 11.2 km/s，v₃ ≈ 16.7 km/s"},
+        {title:"双星系统", chem:"m₁r₁ = m₂r₂，T = 2π√(L³ / [G(m₁+m₂)])"}
       ]
     },
     {
       group: "第八章 机械能守恒定律",
       items: [
         {title:"功", chem:"W = Fs·cosθ"},
+        {title:"总功", chem:"W合 = W₁ + W₂ + … = ΔEₖ"},
         {title:"功率", chem:"P = W / t = Fv·cosθ"},
+        {title:"机车启动最大速度", chem:"v_max = P / f"},
+        {title:"机车匀加速启动", chem:"F - f = ma，P = Fv"},
         {title:"动能", chem:"Eₖ = ½mv²"},
         {title:"动能定理", chem:"W合 = ΔEₖ = ½mv₂² - ½mv₁²"},
         {title:"重力势能", chem:"Eₚ = mgh"},
-        {title:"机械能守恒", chem:"Eₖ₁ + Eₚ₁ = Eₖ₂ + Eₚ₂"}
+        {title:"重力做功", chem:"W_G = mgh₁ - mgh₂ = -ΔEₚ"},
+        {title:"弹性势能", chem:"Eₚ = ½kx²"},
+        {title:"机械能守恒", chem:"Eₖ₁ + Eₚ₁ = Eₖ₂ + Eₚ₂"},
+        {title:"功能关系", chem:"W其他 = ΔE（除重力、弹力外其他力做功等于机械能变化）"}
       ]
     }
   ],
@@ -1519,36 +2342,54 @@ const EQ_DATA = {
     {
       group: "第九章 静电场及其应用",
       items: [
-        {title:"库仑定律", chem:"F = k·q₁q₂ / r²"},
-        {title:"电场强度", chem:"E = F / q"},
-        {title:"点电荷场强", chem:"E = kQ / r²"}
+        {title:"电荷守恒定律", chem:"孤立系统电荷代数和保持不变"},
+        {title:"库仑定律", chem:"F = k·q₁q₂ / r²（k = 9.0×10⁹ N·m²/C²）"},
+        {title:"电场强度定义", chem:"E = F / q"},
+        {title:"点电荷场强", chem:"E = kQ / r²"},
+        {title:"电场叠加", chem:"E = E₁ + E₂ + …（矢量和）"},
+        {title:"匀强电场", chem:"场强大小方向处处相同，电场线为等间距平行直线"}
       ]
     },
     {
       group: "第十章 静电场中的能量",
       items: [
+        {title:"电势能", chem:"Eₚ = qφ"},
         {title:"电势", chem:"φ = Eₚ / q"},
         {title:"电势差", chem:"U_AB = φ_A - φ_B = W_AB / q"},
-        {title:"匀强电场", chem:"U = Ed"},
-        {title:"电容", chem:"C = Q / U"}
+        {title:"电场力做功", chem:"W_AB = qU_AB = q(φ_A - φ_B)"},
+        {title:"匀强电场电势差", chem:"U = Ed（d 为沿场强方向的距离）"},
+        {title:"电容定义", chem:"C = Q / U"},
+        {title:"平行板电容器", chem:"C = ε_r S / (4πkd)"},
+        {title:"电容器动态分析", chem:"保持电压 U 不变或保持电荷量 Q 不变，结合 C = ε_rS/(4πkd) 与 U = Q/C 判断"}
       ]
     },
     {
       group: "第十一章 电路及其应用",
       items: [
-        {title:"电流", chem:"I = q / t"},
+        {title:"电流定义", chem:"I = q / t"},
+        {title:"电流微观表达式", chem:"I = nqSv"},
         {title:"欧姆定律", chem:"I = U / R"},
         {title:"电阻定律", chem:"R = ρL / S"},
-        {title:"串联电阻", chem:"R = R₁ + R₂ + ..."},
-        {title:"并联电阻", chem:"1/R = 1/R₁ + 1/R₂ + ..."}
+        {title:"串联电路", chem:"R = R₁ + R₂ + …，I 相等，U 按电阻分配"},
+        {title:"并联电路", chem:"1/R = 1/R₁ + 1/R₂ + …，U 相等，I 按电阻反比分配"},
+        {title:"电压表改装", chem:"R串 = (U/U_g - 1)R_g"},
+        {title:"电流表改装", chem:"R并 = R_g / (I/I_g - 1)"},
+        {title:"伏安法测电阻", chem:"R = U / I；大电阻用电流表内接，小电阻用电流表外接"}
       ]
     },
     {
       group: "第十二章 电能 能量守恒定律",
       items: [
+        {title:"电动势", chem:"E = W非 / q"},
         {title:"电功", chem:"W = UIt"},
+        {title:"电源总功率与内部发热", chem:"P总 = EI，P内 = I²r"},
         {title:"电功率", chem:"P = UI"},
-        {title:"焦耳定律", chem:"Q = I²Rt"}
+        {title:"焦耳定律", chem:"Q = I²Rt"},
+        {title:"纯电阻电路", chem:"P = UI = I²R = U² / R"},
+        {title:"闭合电路欧姆定律", chem:"I = E / (R + r)"},
+        {title:"路端电压", chem:"U = E - Ir"},
+        {title:"电源效率", chem:"η = U / E × 100% = R / (R + r) × 100%"},
+        {title:"电源输出功率", chem:"P出 = I²R = E²R / (R + r)²，R = r 时最大"}
       ]
     }
   ],
@@ -1557,34 +2398,53 @@ const EQ_DATA = {
     {
       group: "第一章 动量守恒定律",
       items: [
-        {title:"动量", chem:"p = mv"},
-        {title:"冲量", chem:"I = Ft"},
-        {title:"动量定理", chem:"I = Δp = mv₂ - mv₁"},
+        {title:"动量", chem:"p = mv（矢量）"},
+        {title:"冲量", chem:"I = Ft（矢量）"},
+        {title:"动量定理", chem:"I合 = Δp = mv₂ - mv₁"},
+        {title:"动量守恒条件", chem:"系统所受合外力为零，或内力远大于外力"},
         {title:"动量守恒", chem:"m₁v₁ + m₂v₂ = m₁v₁' + m₂v₂'"},
-        {title:"弹性碰撞", chem:"v₁' = ((m₁-m₂)v₁ + 2m₂v₂) / (m₁+m₂)"}
+        {title:"弹性碰撞（第一物体）", chem:"v₁' = ((m₁-m₂)v₁ + 2m₂v₂) / (m₁+m₂)"},
+        {title:"弹性碰撞（第二物体）", chem:"v₂' = ((m₂-m₁)v₂ + 2m₁v₁) / (m₁+m₂)"},
+        {title:"完全非弹性碰撞", chem:"m₁v₁ + m₂v₂ = (m₁+m₂)v共"},
+        {title:"碰撞能量损失", chem:"ΔE = Eₖ初 - Eₖ末（弹性碰撞 ΔE = 0）"},
+        {title:"反冲", chem:"0 = m₁v₁ + m₂v₂"}
       ]
     },
     {
       group: "第二章 机械振动",
       items: [
         {title:"简谐回复力", chem:"F = -kx"},
-        {title:"简谐周期", chem:"T = 2π√(m/k)"},
-        {title:"单摆周期", chem:"T = 2π√(L/g)"}
+        {title:"简谐加速度", chem:"a = -kx / m"},
+        {title:"简谐运动方程", chem:"x = A·sin(ωt + φ)"},
+        {title:"简谐速度", chem:"v = Aω·cos(ωt + φ)"},
+        {title:"弹簧振子周期", chem:"T = 2π√(m/k)"},
+        {title:"单摆周期", chem:"T = 2π√(L/g)（摆角很小）"},
+        {title:"简谐能量", chem:"E = ½kA²（机械能守恒）"},
+        {title:"受迫振动频率", chem:"稳定后频率等于驱动力频率"},
+        {title:"共振条件", chem:"驱动力频率等于固有频率"}
       ]
     },
     {
       group: "第三章 机械波",
       items: [
         {title:"波速公式", chem:"v = λf = λ / T"},
-        {title:"波的干涉条件", chem:"Δr = nλ（加强），Δr = (n+½)λ（减弱）"}
+        {title:"波传播特点", chem:"介质质点不随波迁移，只传递振动形式和能量"},
+        {title:"波的干涉加强", chem:"Δr = nλ（n = 0,1,2,…）"},
+        {title:"波的干涉减弱", chem:"Δr = (2n+1)λ/2"},
+        {title:"波的衍射条件", chem:"障碍物或孔的尺寸与波长相近或更小"},
+        {title:"多普勒效应", chem:"波源与观察者相互靠近时接收频率升高，远离时降低"}
       ]
     },
     {
       group: "第四章 光",
       items: [
+        {title:"折射率", chem:"n = c / v"},
         {title:"折射定律", chem:"n = sinθ₁ / sinθ₂"},
         {title:"临界角", chem:"sinC = 1 / n"},
-        {title:"双缝干涉条纹间距", chem:"Δx = (L/d)·λ"}
+        {title:"全反射条件", chem:"光从光密介质射向光疏介质，且入射角 ≥ 临界角"},
+        {title:"双缝干涉条纹间距", chem:"Δx = (L/d)·λ"},
+        {title:"薄膜干涉", chem:"光程差 Δ = 2d（垂直入射）"},
+        {title:"光的波长与频率", chem:"c = λf"}
       ]
     }
   ],
@@ -1593,26 +2453,51 @@ const EQ_DATA = {
     {
       group: "第一章 安培力与洛伦兹力",
       items: [
-        {title:"安培力", chem:"F = BIL·sinθ"},
+        {title:"安培力", chem:"F = BIL·sinθ（θ 为 I 与 B 的夹角）"},
+        {title:"安培力方向", chem:"左手定则：磁感线穿入手心，四指指电流，拇指指安培力"},
         {title:"洛伦兹力", chem:"f = qvB·sinθ"},
+        {title:"洛伦兹力方向", chem:"左手定则；正电荷四指指 v，负电荷四指指 v 的反方向"},
+        {title:"洛伦兹力不做功", chem:"f ⊥ v，只改变速度方向，不改变速率"},
         {title:"带电粒子圆周运动半径", chem:"r = mv / (qB)"},
-        {title:"回旋周期", chem:"T = 2πm / (qB)"}
+        {title:"回旋周期", chem:"T = 2πm / (qB)"},
+        {title:"速度选择器", chem:"qE = qvB，v = E / B"},
+        {title:"质谱仪", chem:"r = mv/(qB)，比荷 q/m = v/(Br)"},
+        {title:"回旋加速器最大动能", chem:"Eₖmax = q²B²R² / (2m)"}
       ]
     },
     {
       group: "第二章 电磁感应",
       items: [
+        {title:"磁通量", chem:"Φ = BS·cosθ"},
         {title:"法拉第电磁感应定律", chem:"E = n·ΔΦ / Δt"},
         {title:"导体棒切割磁感线", chem:"E = BLv·sinθ"},
-        {title:"自感电动势", chem:"E = L·ΔI / Δt"}
+        {title:"楞次定律", chem:"感应电流的磁场总是阻碍引起感应电流的磁通量变化"},
+        {title:"右手定则", chem:"磁感线穿入手心，拇指指导体运动方向，四指指感应电流方向"},
+        {title:"自感电动势", chem:"E = L·ΔI / Δt"},
+        {title:"感应电荷量", chem:"q = nΔΦ / (R + r)"}
       ]
     },
     {
       group: "第三章 交变电流",
       items: [
-        {title:"正弦交流电峰值与有效值", chem:"U = Uₘ / √2"},
+        {title:"正弦交流电瞬时值", chem:"e = Eₘ·sinωt，i = Iₘ·sinωt"},
+        {title:"交流电峰值", chem:"Eₘ = nBSω"},
+        {title:"有效值", chem:"U = Uₘ / √2，I = Iₘ / √2（正弦式）"},
+        {title:"周期与频率", chem:"T = 1 / f，ω = 2πf = 2π / T"},
         {title:"变压器电压比", chem:"U₁ / U₂ = n₁ / n₂"},
-        {title:"变压器电流比（理想）", chem:"I₁ / I₂ = n₂ / n₁"}
+        {title:"变压器电流比（理想）", chem:"I₁ / I₂ = n₂ / n₁"},
+        {title:"理想变压器功率", chem:"P₁ = P₂，即 U₁I₁ = U₂I₂"},
+        {title:"远距离输电电压损失", chem:"ΔU = IR线"},
+        {title:"远距离输电功率损失", chem:"ΔP = I²R线 = (P/U)²R线"}
+      ]
+    },
+    {
+      group: "第四章 电磁振荡与电磁波",
+      items: [
+        {title:"LC 振荡电路周期", chem:"T = 2π√(LC)"},
+        {title:"LC 振荡频率", chem:"f = 1 / (2π√(LC))"},
+        {title:"电磁波速度", chem:"c = λf"},
+        {title:"电磁波谱", chem:"无线电波—红外线—可见光—紫外线—X 射线—γ 射线"}
       ]
     }
   ],
@@ -1622,7 +2507,12 @@ const EQ_DATA = {
       group: "第一章 分子动理论",
       items: [
         {title:"分子数", chem:"N = n·N_A = (m/M)·N_A"},
-        {title:"分子平均动能", chem:"Ēₖ = (3/2)kT"}
+        {title:"分子质量", chem:"m₀ = M / N_A"},
+        {title:"分子数密度", chem:"n = N / V"},
+        {title:"分子平均动能", chem:"Ēₖ = (3/2)kT"},
+        {title:"分子直径数量级", chem:"10⁻¹⁰ m"},
+        {title:"布朗运动", chem:"悬浮微粒的无规则运动，反映液体分子的无规则运动"},
+        {title:"分子力", chem:"r < r₀ 时表现为斥力，r > r₀ 时表现为引力，r = r₀ 时分子力为零"}
       ]
     },
     {
@@ -1631,22 +2521,44 @@ const EQ_DATA = {
         {title:"玻意耳定律", chem:"p₁V₁ = p₂V₂（等温）"},
         {title:"查理定律", chem:"p₁ / T₁ = p₂ / T₂（等容）"},
         {title:"盖-吕萨克定律", chem:"V₁ / T₁ = V₂ / T₂（等压）"},
-        {title:"理想气体状态方程", chem:"pV / T = C 或 pV = nRT"}
+        {title:"理想气体状态方程", chem:"pV / T = C 或 pV = nRT"},
+        {title:"气体压强微观解释", chem:"气体压强由分子平均动能和分子数密度共同决定"},
+        {title:"晶体与非晶体", chem:"晶体有固定熔点，非晶体没有固定熔点"},
+        {title:"液体表面张力", chem:"使液面收缩，方向沿液面切线"}
+      ]
+    },
+    {
+      group: "第三章 热力学定律",
+      items: [
+        {title:"热力学第一定律", chem:"ΔU = Q + W（W 为外界对气体做的功）"},
+        {title:"等压过程做功", chem:"气体对外做功 W = pΔV"},
+        {title:"热机效率", chem:"η = W有用 / Q吸 × 100%"},
+        {title:"热力学第二定律", chem:"热量不能自发地从低温物体传到高温物体"}
       ]
     },
     {
       group: "第四章 原子结构和波粒二象性",
       items: [
-        {title:"光子能量", chem:"E = hν"},
+        {title:"光子能量", chem:"E = hν = hc / λ"},
         {title:"光电效应方程", chem:"Eₖ = hν - W₀"},
-        {title:"氢原子能级跃迁", chem:"hν = Eₘ - Eₙ"}
+        {title:"遏止电压", chem:"eU_c = Eₖ"},
+        {title:"截止频率", chem:"ν_c = W₀ / h"},
+        {title:"氢原子能级", chem:"Eₙ = E₁ / n²，E₁ = -13.6 eV"},
+        {title:"能级跃迁", chem:"hν = Eₘ - Eₙ（m > n）"},
+        {title:"德布罗意波长", chem:"λ = h / p = h / (mv)"}
       ]
     },
     {
       group: "第五章 原子核",
       items: [
+        {title:"α 衰变规律", chem:"质量数减 4，电荷数减 2"},
+        {title:"β 衰变规律", chem:"质量数不变，电荷数加 1"},
+        {title:"α 衰变示例", chem:"²³⁸₉₂U → ²³⁴₉₀Th + ⁴₂He"},
+        {title:"β 衰变示例", chem:"¹⁴₆C → ¹⁴₇N + ⁰₋₁e"},
+        {title:"半衰期", chem:"N = N₀·(1/2)^(t/T)"},
         {title:"质能方程", chem:"E = mc²"},
-        {title:"质量亏损与结合能", chem:"ΔE = Δm·c²"}
+        {title:"质量亏损与结合能", chem:"ΔE = Δm·c²"},
+        {title:"核反应守恒", chem:"反应前后质量数守恒、电荷数守恒"}
       ]
     }
   ],
@@ -1657,7 +2569,14 @@ const EQ_DATA = {
       items: [
         {title:"集合的并集", chem:"A ∪ B = {x | x ∈ A 或 x ∈ B}"},
         {title:"集合的交集", chem:"A ∩ B = {x | x ∈ A 且 x ∈ B}"},
-        {title:"补集", chem:"∁_U A = {x | x ∈ U 且 x ∉ A}"}
+        {title:"补集", chem:"∁_U A = {x | x ∈ U 且 x ∉ A}"},
+        {title:"子集个数", chem:"含 n 个元素的集合有 2ⁿ 个子集、2ⁿ-1 个真子集"},
+        {title:"德摩根律", chem:"∁_U(A ∪ B) = (∁_U A) ∩ (∁_U B)，∁_U(A ∩ B) = (∁_U A) ∪ (∁_U B)"},
+        {title:"充分条件", chem:"若 p ⇒ q，则 p 是 q 的充分条件"},
+        {title:"必要条件", chem:"若 q ⇒ p，则 p 是 q 的必要条件"},
+        {title:"充要条件", chem:"若 p ⇔ q，则 p 是 q 的充要条件"},
+        {title:"全称量词否定", chem:"¬(∀x∈M, p(x)) ⇔ ∃x∈M, ¬p(x)"},
+        {title:"存在量词否定", chem:"¬(∃x∈M, p(x)) ⇔ ∀x∈M, ¬p(x)"}
       ]
     },
     {
@@ -1665,27 +2584,63 @@ const EQ_DATA = {
       items: [
         {title:"二次函数", chem:"y = ax² + bx + c（a ≠ 0）"},
         {title:"顶点公式", chem:"x = -b / (2a)，y = (4ac - b²) / (4a)"},
-        {title:"基本不等式", chem:"a + b ≥ 2√(ab)（a,b > 0）"},
-        {title:"一元二次方程求根", chem:"x = (-b ± √(b² - 4ac)) / (2a)"}
+        {title:"判别式", chem:"Δ = b² - 4ac"},
+        {title:"一元二次方程求根", chem:"x = (-b ± √(b² - 4ac)) / (2a)"},
+        {title:"韦达定理", chem:"x₁ + x₂ = -b/a，x₁x₂ = c/a"},
+        {title:"基本不等式", chem:"a + b ≥ 2√(ab)（a,b > 0，当且仅当 a = b 取等）"},
+        {title:"基本不等式变形", chem:"ab ≤ ((a+b)/2)²，a² + b² ≥ 2ab"},
+        {title:"不等式性质", chem:"a > b ⇒ a + c > b + c；a > b, c > 0 ⇒ ac > bc"},
+        {title:"一元二次不等式", chem:"a > 0 且 Δ > 0 时，ax²+bx+c > 0 的解集为 x < x₁ 或 x > x₂"}
+      ]
+    },
+    {
+      group: "第三章 函数的概念与性质",
+      items: [
+        {title:"函数定义", chem:"设 A、B 为非空实数集，若对 A 中任意 x，按对应关系 f 在 B 中都有唯一确定的 y 与之对应，则 y = f(x)"},
+        {title:"单调递增", chem:"x₁ < x₂ ⇒ f(x₁) < f(x₂)"},
+        {title:"单调递减", chem:"x₁ < x₂ ⇒ f(x₁) > f(x₂)"},
+        {title:"奇函数", chem:"f(-x) = -f(x)，图象关于原点对称"},
+        {title:"偶函数", chem:"f(-x) = f(x)，图象关于 y 轴对称"},
+        {title:"周期性", chem:"f(x + T) = f(x)（T ≠ 0）"},
+        {title:"函数零点", chem:"f(x) = 0 的实数根"},
+        {title:"零点存在定理", chem:"f(x) 在 [a,b] 上连续，且 f(a)·f(b) < 0，则存在 c∈(a,b) 使 f(c)=0"},
+        {title:"幂函数", chem:"y = x^α（α 为常数）"},
+        {title:"常见幂函数", chem:"y = x，y = x²，y = x³，y = x^(1/2)，y = x⁻¹"}
       ]
     },
     {
       group: "第四章 指数函数与对数函数",
       items: [
-        {title:"指数运算", chem:"aᵐ·aⁿ = aᵐ⁺ⁿ，(aᵐ)ⁿ = aᵐⁿ"},
+        {title:"指数运算", chem:"aᵐ·aⁿ = aᵐ⁺ⁿ，(aᵐ)ⁿ = aᵐⁿ，(ab)ⁿ = aⁿbⁿ"},
+        {title:"负指数与分数指数", chem:"a⁻ⁿ = 1/aⁿ，a^(m/n) = ⁿ√(aᵐ)（a > 0）"},
         {title:"对数运算", chem:"logₐ(MN) = logₐM + logₐN"},
         {title:"对数商", chem:"logₐ(M/N) = logₐM - logₐN"},
-        {title:"换底公式", chem:"logₐb = log_c b / log_c a"}
+        {title:"对数幂", chem:"logₐ(Mⁿ) = n·logₐM"},
+        {title:"换底公式", chem:"logₐb = log_c b / log_c a"},
+        {title:"对数恒等式", chem:"a^(logₐN) = N，logₐa = 1，logₐ1 = 0"},
+        {title:"指数函数", chem:"y = aˣ（a > 0 且 a ≠ 1）"},
+        {title:"对数函数", chem:"y = logₐx（a > 0 且 a ≠ 1，x > 0）"}
       ]
     },
     {
       group: "第五章 三角函数",
       items: [
-        {title:"同角关系", chem:"sin²α + cos²α = 1"},
+        {title:"弧度制", chem:"180° = π rad，1 rad = 180°/π"},
+        {title:"弧长公式", chem:"l = αr（α 为圆心角弧度数）"},
+        {title:"扇形面积", chem:"S = ½lr = ½αr²"},
+        {title:"同角关系", chem:"sin²α + cos²α = 1，tanα = sinα / cosα"},
         {title:"诱导公式", chem:"sin(π - α) = sinα，cos(π - α) = -cosα"},
+        {title:"诱导公式（π + α）", chem:"sin(π + α) = -sinα，cos(π + α) = -cosα"},
         {title:"两角和差正弦", chem:"sin(α ± β) = sinαcosβ ± cosαsinβ"},
         {title:"两角和差余弦", chem:"cos(α ± β) = cosαcosβ ∓ sinαsinβ"},
-        {title:"二倍角公式", chem:"sin2α = 2sinαcosα，cos2α = cos²α - sin²α"}
+        {title:"两角和差正切", chem:"tan(α ± β) = (tanα ± tanβ) / (1 ∓ tanαtanβ)"},
+        {title:"二倍角公式", chem:"sin2α = 2sinαcosα，cos2α = cos²α - sin²α = 1 - 2sin²α"},
+        {title:"二倍角正切", chem:"tan2α = 2tanα / (1 - tan²α)"},
+        {title:"半角公式", chem:"sin²(α/2) = (1 - cosα)/2，cos²(α/2) = (1 + cosα)/2"},
+        {title:"辅助角公式", chem:"a·sinx + b·cosx = √(a²+b²)·sin(x + φ)，tanφ = b/a"},
+        {title:"正弦型函数", chem:"y = A·sin(ωx + φ) + k"},
+        {title:"正弦型函数周期", chem:"T = 2π / |ω|"},
+        {title:"正弦型函数最值", chem:"y_max = A + k，y_min = -A + k"}
       ]
     }
   ],
@@ -1695,8 +2650,14 @@ const EQ_DATA = {
       group: "第六章 平面向量及其应用",
       items: [
         {title:"向量加法", chem:"a + b = (x₁+x₂, y₁+y₂)"},
+        {title:"向量减法", chem:"a - b = (x₁-x₂, y₁-y₂)"},
+        {title:"数乘向量", chem:"λa = (λx₁, λy₁)"},
+        {title:"向量模", chem:"|a| = √(x₁² + y₁²)"},
         {title:"向量点积（坐标）", chem:"a·b = x₁x₂ + y₁y₂"},
         {title:"向量点积（角度）", chem:"a·b = |a||b|cosθ"},
+        {title:"向量夹角", chem:"cosθ = (a·b) / (|a||b|)"},
+        {title:"向量垂直", chem:"a ⊥ b ⇔ a·b = 0 ⇔ x₁x₂ + y₁y₂ = 0"},
+        {title:"向量平行", chem:"a ∥ b ⇔ x₁y₂ - x₂y₁ = 0"},
         {title:"正弦定理", chem:"a / sinA = b / sinB = c / sinC = 2R"},
         {title:"余弦定理", chem:"c² = a² + b² - 2ab·cosC"},
         {title:"三角形面积", chem:"S = ½ab·sinC"}
@@ -1705,114 +2666,246 @@ const EQ_DATA = {
     {
       group: "第七章 复数",
       items: [
-        {title:"复数", chem:"z = a + bi"},
+        {title:"复数", chem:"z = a + bi（a,b ∈ R，i² = -1）"},
         {title:"复数模", chem:"|z| = √(a² + b²)"},
-        {title:"复数乘法", chem:"(a+bi)(c+di) = (ac-bd) + (ad+bc)i"}
+        {title:"共轭复数", chem:"z̄ = a - bi"},
+        {title:"复数加法", chem:"(a+bi) + (c+di) = (a+c) + (b+d)i"},
+        {title:"复数乘法", chem:"(a+bi)(c+di) = (ac-bd) + (ad+bc)i"},
+        {title:"复数除法", chem:"(a+bi)/(c+di) = [(a+bi)(c-di)] / (c²+d²)"},
+        {title:"复数几何意义", chem:"z = a + bi 对应复平面点 (a,b)，|z| 为到原点距离"}
       ]
     },
     {
       group: "第八章 立体几何初步",
       items: [
+        {title:"棱柱体积", chem:"V = Sh"},
+        {title:"棱锥体积", chem:"V = ⅓Sh"},
+        {title:"棱台体积", chem:"V = ⅓h(S + √(SS') + S')"},
+        {title:"圆柱体积", chem:"V = πr²h"},
+        {title:"圆柱侧面积", chem:"S侧 = 2πrh"},
+        {title:"圆锥体积", chem:"V = ⅓πr²h"},
+        {title:"圆锥侧面积", chem:"S侧 = πrl（l 为母线长）"},
+        {title:"圆台体积", chem:"V = ⅓πh(r² + rr' + r'²)"},
         {title:"球的体积", chem:"V = (4/3)πR³"},
         {title:"球的表面积", chem:"S = 4πR²"},
-        {title:"圆柱体积", chem:"V = πr²h"},
-        {title:"圆锥体积", chem:"V = (1/3)πr²h"}
+        {title:"线面角", chem:"sinθ = |a·n| / (|a||n|)（a 为直线方向向量，n 为平面法向量）"},
+        {title:"二面角", chem:"cosθ = |n₁·n₂| / (|n₁||n₂|)"}
+      ]
+    },
+    {
+      group: "第九章 统计",
+      items: [
+        {title:"平均数", chem:"x̄ = (x₁ + x₂ + … + xₙ) / n"},
+        {title:"方差", chem:"s² = [(x₁-x̄)² + … + (xₙ-x̄)²] / n"},
+        {title:"标准差", chem:"s = √(s²)"},
+        {title:"频率", chem:"频率 = 频数 / 样本容量"},
+        {title:"百分位数", chem:"将数据从小到大排列，第 p 百分位数使至少 p% 的数据不超过它"},
+        {title:"频率分布直方图", chem:"小长方形面积 = 频率，所有小长方形面积之和为 1"}
+      ]
+    },
+    {
+      group: "第十章 概率",
+      items: [
+        {title:"古典概型", chem:"P(A) = m / n（m 为 A 包含的基本事件数，n 为基本事件总数）"},
+        {title:"互斥事件加法", chem:"P(A ∪ B) = P(A) + P(B)（A、B 互斥）"},
+        {title:"对立事件", chem:"P(Ā) = 1 - P(A)"},
+        {title:"独立事件乘法", chem:"P(AB) = P(A)P(B)（A、B 相互独立）"},
+        {title:"概率基本性质", chem:"0 ≤ P(A) ≤ 1，P(Ω) = 1"}
       ]
     }
   ],
 
   "数学∙选必一": [
     {
-      group: "第四章 数列",
+      group: "第一章 空间向量与立体几何",
       items: [
-        {title:"等差数列通项", chem:"aₙ = a₁ + (n - 1)d"},
-        {title:"等差数列求和", chem:"Sₙ = n(a₁ + aₙ) / 2 = na₁ + n(n-1)d/2"},
-        {title:"等比数列通项", chem:"aₙ = a₁·qⁿ⁻¹"},
-        {title:"等比数列求和", chem:"Sₙ = a₁(1 - qⁿ) / (1 - q)（q ≠ 1）"}
+        {title:"空间向量坐标运算", chem:"a ± b = (x₁±x₂, y₁±y₂, z₁±z₂)"},
+        {title:"空间向量数量积", chem:"a·b = x₁x₂ + y₁y₂ + z₁z₂"},
+        {title:"空间向量模", chem:"|a| = √(x² + y² + z²)"},
+        {title:"空间向量夹角", chem:"cosθ = (a·b) / (|a||b|)"},
+        {title:"点到平面距离", chem:"d = |AP·n| / |n|（n 为平面法向量）"},
+        {title:"线面角", chem:"sinθ = |a·n| / (|a||n|)"},
+        {title:"二面角", chem:"cosθ = |n₁·n₂| / (|n₁||n₂|)"}
       ]
     },
     {
       group: "第二章 直线和圆的方程",
       items: [
+        {title:"斜率", chem:"k = (y₂ - y₁) / (x₂ - x₁)（x₁ ≠ x₂）"},
+        {title:"点斜式", chem:"y - y₀ = k(x - x₀)"},
+        {title:"斜截式", chem:"y = kx + b"},
+        {title:"一般式", chem:"Ax + By + C = 0（A、B 不同时为 0）"},
+        {title:"平行条件", chem:"l₁ ∥ l₂ ⇔ k₁ = k₂（斜率存在且不重合）"},
+        {title:"垂直条件", chem:"l₁ ⊥ l₂ ⇔ k₁k₂ = -1"},
         {title:"两点间距离", chem:"d = √((x₂-x₁)² + (y₂-y₁)²)"},
         {title:"点到直线距离", chem:"d = |Ax₀ + By₀ + C| / √(A² + B²)"},
         {title:"圆的标准方程", chem:"(x - a)² + (y - b)² = r²"},
-        {title:"圆的一般方程", chem:"x² + y² + Dx + Ey + F = 0"}
+        {title:"圆的一般方程", chem:"x² + y² + Dx + Ey + F = 0（D² + E² - 4F > 0）"},
+        {title:"圆的一般方程圆心半径", chem:"圆心(-D/2, -E/2)，r = ½√(D² + E² - 4F)"},
+        {title:"直线与圆位置关系", chem:"d < r 相交，d = r 相切，d > r 相离"},
+        {title:"弦长公式", chem:"|AB| = 2√(r² - d²)"}
       ]
     },
     {
       group: "第三章 圆锥曲线的方程",
       items: [
         {title:"椭圆标准方程", chem:"x²/a² + y²/b² = 1（a > b > 0）"},
+        {title:"椭圆关系式", chem:"a² = b² + c²"},
         {title:"椭圆离心率", chem:"e = c / a（0 < e < 1）"},
-        {title:"双曲线标准方程", chem:"x²/a² - y²/b² = 1"},
+        {title:"椭圆焦点", chem:"焦点为 (±c, 0)，c = √(a² - b²)"},
+        {title:"双曲线标准方程", chem:"x²/a² - y²/b² = 1（a > 0，b > 0）"},
+        {title:"双曲线关系式", chem:"c² = a² + b²"},
+        {title:"双曲线离心率", chem:"e = c / a（e > 1）"},
         {title:"双曲线渐近线", chem:"y = ±(b/a)x"},
-        {title:"抛物线标准方程", chem:"y² = 2px（p > 0）"}
+        {title:"抛物线标准方程", chem:"y² = 2px（p > 0）"},
+        {title:"抛物线焦点与准线", chem:"焦点(p/2, 0)，准线 x = -p/2"},
+        {title:"抛物线焦半径", chem:"|PF| = x₀ + p/2"},
+        {title:"通径", chem:"椭圆、双曲线通径长 = 2b²/a；抛物线通径长 = 2p"},
+        {title:"弦长公式", chem:"|AB| = √(1+k²)·|x₁ - x₂|"}
       ]
     }
   ],
 
   "数学∙选必二": [
     {
-      group: "第五章 导数及其应用",
+      group: "第四章 数列",
       items: [
-        {title:"导数定义", chem:"f'(x₀) = lim(Δx→0) [f(x₀+Δx) - f(x₀)] / Δx"},
-        {title:"幂函数导数", chem:"(xⁿ)' = n·xⁿ⁻¹"},
-        {title:"正弦余弦导数", chem:"(sinx)' = cosx，(cosx)' = -sinx"},
-        {title:"指数对数导数", chem:"(eˣ)' = eˣ，(lnx)' = 1/x"},
-        {title:"乘积法则", chem:"(uv)' = u'v + uv'"},
-        {title:"商法则", chem:"(u/v)' = (u'v - uv') / v²"}
+        {title:"等差数列通项", chem:"aₙ = a₁ + (n - 1)d"},
+        {title:"等差数列求和", chem:"Sₙ = n(a₁ + aₙ) / 2 = na₁ + n(n-1)d/2"},
+        {title:"等差数列中项", chem:"2aₙ = aₙ₋₁ + aₙ₊₁"},
+        {title:"等比数列通项", chem:"aₙ = a₁·qⁿ⁻¹"},
+        {title:"等比数列求和", chem:"Sₙ = a₁(1 - qⁿ) / (1 - q)（q ≠ 1）"},
+        {title:"等比数列求和（q=1）", chem:"Sₙ = na₁"},
+        {title:"等比数列中项", chem:"aₙ² = aₙ₋₁·aₙ₊₁"},
+        {title:"错位相减法", chem:"适用于等差数列与等比数列对应项相乘构成的数列求和"},
+        {title:"裂项相消法", chem:"1/[n(n+1)] = 1/n - 1/(n+1)"},
+        {title:"递推数列", chem:"aₙ₊₁ - aₙ = f(n) 可用累加法；aₙ₊₁/aₙ = f(n) 可用累乘法"}
       ]
     },
     {
-      group: "第六章 计数原理",
+      group: "第五章 一元函数的导数及其应用",
       items: [
-        {title:"排列数", chem:"A(n,m) = n! / (n - m)!"},
-        {title:"组合数", chem:"C(n,m) = n! / [m!(n - m)!]"},
-        {title:"二项式定理", chem:"(a+b)ⁿ = ΣC(n,k)·aⁿ⁻ᵏ·bᵏ"}
+        {title:"导数定义", chem:"f'(x₀) = lim(Δx→0) [f(x₀+Δx) - f(x₀)] / Δx"},
+        {title:"幂函数导数", chem:"(xⁿ)' = n·xⁿ⁻¹"},
+        {title:"常数导数", chem:"(C)' = 0"},
+        {title:"正弦余弦导数", chem:"(sinx)' = cosx，(cosx)' = -sinx"},
+        {title:"指数对数导数", chem:"(eˣ)' = eˣ，(aˣ)' = aˣ·lna，(lnx)' = 1/x"},
+        {title:"乘积法则", chem:"(uv)' = u'v + uv'"},
+        {title:"商法则", chem:"(u/v)' = (u'v - uv') / v²"},
+        {title:"复合函数求导", chem:"[f(g(x))]' = f'(g(x))·g'(x)"},
+        {title:"切线方程", chem:"y - f(x₀) = f'(x₀)(x - x₀)"},
+        {title:"单调性判定", chem:"f'(x) > 0 时单调递增，f'(x) < 0 时单调递减"},
+        {title:"极值判定", chem:"f'(x₀) = 0 且 f'(x) 在 x₀ 两侧变号"},
+        {title:"最值", chem:"闭区间上比较极值点与端点函数值"}
       ]
     }
   ],
 
   "数学∙选必三": [
     {
+      group: "第六章 计数原理",
+      items: [
+        {title:"分类加法计数原理", chem:"N = m₁ + m₂ + … + mₙ"},
+        {title:"分步乘法计数原理", chem:"N = m₁ × m₂ × … × mₙ"},
+        {title:"排列数", chem:"A(n,m) = n! / (n - m)!"},
+        {title:"全排列", chem:"A(n,n) = n!"},
+        {title:"组合数", chem:"C(n,m) = n! / [m!(n - m)!]"},
+        {title:"组合数性质", chem:"C(n,m) = C(n,n-m)，C(n,m) = C(n-1,m-1) + C(n-1,m)"},
+        {title:"二项式定理", chem:"(a+b)ⁿ = ΣC(n,k)·aⁿ⁻ᵏ·bᵏ"},
+        {title:"二项式通项", chem:"Tₖ₊₁ = C(n,k)·aⁿ⁻ᵏ·bᵏ"},
+        {title:"二项式系数性质", chem:"C(n,0) + C(n,1) + … + C(n,n) = 2ⁿ"}
+      ]
+    },
+    {
       group: "第七章 随机变量及其分布",
       items: [
-        {title:"古典概型", chem:"P(A) = m / n"},
-        {title:"条件概率", chem:"P(B|A) = P(AB) / P(A)"},
-        {title:"全概率公式", chem:"P(B) = ΣP(Aᵢ)·P(B|Aᵢ)"},
+        {title:"分布列性质", chem:"pᵢ ≥ 0，Σpᵢ = 1"},
+        {title:"期望", chem:"E(X) = Σxᵢpᵢ"},
+        {title:"方差", chem:"D(X) = Σ(xᵢ - E(X))²pᵢ = E(X²) - [E(X)]²"},
+        {title:"两点分布", chem:"E(X) = p，D(X) = p(1-p)"},
         {title:"二项分布", chem:"P(X = k) = C(n,k)·pᵏ·(1-p)ⁿ⁻ᵏ"},
-        {title:"二项分布期望", chem:"E(X) = np，D(X) = np(1-p)"}
+        {title:"二项分布期望方差", chem:"E(X) = np，D(X) = np(1-p)"},
+        {title:"超几何分布", chem:"P(X = k) = C(M,k)·C(N-M,n-k) / C(N,n)"},
+        {title:"正态分布", chem:"X ~ N(μ, σ²)，图象关于 x = μ 对称"},
+        {title:"正态分布原则", chem:"P(μ-σ < X ≤ μ+σ) ≈ 0.6827，P(μ-2σ < X ≤ μ+2σ) ≈ 0.9545，P(μ-3σ < X ≤ μ+3σ) ≈ 0.9973"}
       ]
     },
     {
       group: "第八章 成对数据的统计分析",
       items: [
         {title:"线性相关系数", chem:"r = Σ(xᵢ-x̄)(yᵢ-ȳ) / √[Σ(xᵢ-x̄)²·Σ(yᵢ-ȳ)²]"},
-        {title:"线性回归方程", chem:"ŷ = b̂x + â"}
+        {title:"相关系数范围", chem:"-1 ≤ r ≤ 1；|r| 越接近 1，线性相关越强"},
+        {title:"线性回归方程", chem:"ŷ = b̂x + â"},
+        {title:"回归系数", chem:"b̂ = Σ(xᵢ-x̄)(yᵢ-ȳ) / Σ(xᵢ-x̄)²，â = ȳ - b̂x̄"},
+        {title:"残差", chem:"eᵢ = yᵢ - ŷᵢ"},
+        {title:"决定系数", chem:"R² = 1 - Σ(yᵢ-ŷᵢ)² / Σ(yᵢ-ȳ)²"},
+        {title:"独立性检验", chem:"χ² = n(ad-bc)² / [(a+b)(c+d)(a+c)(b+d)]"}
       ]
     }
   ],
+
   "生物∙必修一": [
     {
       group: "第一章 走近细胞",
       items: [
         {title:"显微镜总放大倍数", chem:"总放大倍数 = 目镜倍数 × 物镜倍数"},
-        {title:"放大倍数与视野范围", chem:"放大倍数越大，视野中细胞数目越少"}
+        {title:"放大倍数与视野范围", chem:"放大倍数越大，视野中细胞数目越少"},
+        {title:"放大倍数与细胞直径", chem:"放大倍数越大，看到的细胞直径越大"}
+      ]
+    },
+    {
+      group: "第二章 组成细胞的分子",
+      items: [
+        {title:"蛋白质肽键数", chem:"肽键数 = 氨基酸数 - 肽链数"},
+        {title:"蛋白质脱水数", chem:"脱去水分子数 = 肽键数 = 氨基酸数 - 肽链数"},
+        {title:"蛋白质相对分子质量", chem:"蛋白质相对分子质量 = 氨基酸总质量 - 脱去水分子总质量"},
+        {title:"游离氨基与羧基", chem:"每条肽链至少含 1 个游离氨基和 1 个游离羧基"},
+        {title:"DNA 碱基关系", chem:"双链 DNA 中 A = T，G = C"},
+        {title:"DNA 嘌呤嘧啶关系", chem:"双链 DNA 中 A + G = T + C"},
+        {title:"核酸种类", chem:"DNA 含 A、T、G、C；RNA 含 A、U、G、C"}
       ]
     },
     {
       group: "第三章 细胞的基本结构",
       items: [
         {title:"细胞体积与相对表面积", chem:"S/V = 3/r（球体，r 越大比值越小）"},
-        {title:"物质运输效率", chem:"相对表面积越大，物质运输效率越高"}
+        {title:"物质运输效率", chem:"相对表面积越大，物质运输效率越高"},
+        {title:"细胞膜流动镶嵌模型", chem:"磷脂双分子层为基本支架，蛋白质分子镶嵌、贯穿或附着"}
+      ]
+    },
+    {
+      group: "第四章 细胞的物质输入和输出",
+      items: [
+        {title:"渗透作用", chem:"水分子从低浓度溶液向高浓度溶液扩散"},
+        {title:"质壁分离", chem:"外界溶液浓度大于细胞液浓度时，植物细胞失水发生质壁分离"},
+        {title:"自由扩散", chem:"物质从高浓度一侧扩散到低浓度一侧，不需载体和能量"},
+        {title:"协助扩散", chem:"需载体蛋白，不消耗能量，顺浓度梯度"},
+        {title:"主动运输", chem:"需载体蛋白并消耗能量，可逆浓度梯度"}
+      ]
+    },
+    {
+      group: "第五章 细胞的能量供应和利用",
+      items: [
+        {title:"酶的特性", chem:"高效性、专一性、作用条件较温和"},
+        {title:"ATP 与 ADP 转化", chem:"ATP ⇌ ADP + Pi + 能量"},
+        {title:"光合作用总反应", chem:"6CO₂ + 12H₂O =光照/叶绿体= C₆H₁₂O₆ + 6O₂ + 6H₂O"},
+        {title:"光合作用光反应", chem:"H₂O =光/色素= [H] + O₂，ADP + Pi + 能量 → ATP"},
+        {title:"光合作用暗反应", chem:"CO₂ + C₅ → 2C₃；C₃ + [H] + ATP → (CH₂O) + C₅"},
+        {title:"有氧呼吸总反应", chem:"C₆H₁₂O₆ + 6O₂ + 6H₂O =酶= 6CO₂ + 12H₂O + 能量"},
+        {title:"无氧呼吸（酒精发酵）", chem:"C₆H₁₂O₆ =酶= 2C₂H₅OH + 2CO₂ + 少量能量"},
+        {title:"无氧呼吸（乳酸发酵）", chem:"C₆H₁₂O₆ =酶= 2C₃H₆O₃ + 少量能量"},
+        {title:"净光合速率", chem:"净光合速率 = 总光合速率 - 呼吸速率"}
       ]
     },
     {
       group: "第六章 细胞的生命历程",
       items: [
         {title:"细胞周期时长", chem:"细胞周期 = 分裂间期 + 分裂期"},
-        {title:"有丝分裂各时期染色体/DNA/染色单体数", chem:"G1：2N,2N,0；S：2N,2N→4N,0→4N；G2：2N,4N,4N；中期：2N,4N,4N；后期：4N,4N,0；末期：2N,2N,0"}
+        {title:"有丝分裂各时期染色体/DNA/染色单体数", chem:"G1：2N,2N,0；S：2N,2N→4N,0→4N；G2：2N,4N,4N；中期：2N,4N,4N；后期：4N,4N,0；末期：2N,2N,0"},
+        {title:"细胞分化", chem:"基因选择性表达，遗传物质不变"},
+        {title:"细胞衰老特征", chem:"水分减少、酶活性降低、色素积累、细胞核增大"},
+        {title:"细胞凋亡", chem:"由基因决定的程序性死亡，对生物体有利"},
+        {title:"细胞癌变", chem:"原癌基因和抑癌基因发生突变，细胞无限增殖"}
       ]
     }
   ],
@@ -1824,7 +2917,20 @@ const EQ_DATA = {
         {title:"分离定律 F₂ 表现型比", chem:"显性 : 隐性 = 3 : 1"},
         {title:"分离定律 F₂ 基因型比", chem:"AA : Aa : aa = 1 : 2 : 1"},
         {title:"自由组合 F₂ 表现型比", chem:"9 : 3 : 3 : 1"},
-        {title:"测交比例（双杂合）", chem:"1 : 1 : 1 : 1"}
+        {title:"测交比例（双杂合）", chem:"1 : 1 : 1 : 1"},
+        {title:"分离定律实质", chem:"等位基因随同源染色体分开而分离"},
+        {title:"自由组合定律实质", chem:"非同源染色体上的非等位基因自由组合"}
+      ]
+    },
+    {
+      group: "第二章 基因和染色体的关系",
+      items: [
+        {title:"减数分裂染色体数变化", chem:"减数第一次分裂后减半，减数第二次分裂后期暂时加倍，末期再减半"},
+        {title:"减数分裂 DNA 数变化", chem:"间期复制加倍，减数第一次分裂后减半，减数第二次分裂后再次减半"},
+        {title:"同源染色体", chem:"形态大小一般相同，一条来自父方、一条来自母方"},
+        {title:"伴 X 隐性遗传", chem:"男性患者多于女性，交叉遗传"},
+        {title:"伴 X 显性遗传", chem:"女性患者多于男性，世代连续"},
+        {title:"伴 Y 遗传", chem:"传男不传女"}
       ]
     },
     {
@@ -1834,14 +2940,40 @@ const EQ_DATA = {
         {title:"双链 DNA 嘌呤与嘧啶关系", chem:"A + G = T + C"},
         {title:"双链 DNA 中 (A+G)/(T+C)", chem:"(A+G)/(T+C) = 1"},
         {title:"DNA 复制 n 次后分子数", chem:"2ⁿ 个 DNA 分子"},
-        {title:"DNA 复制 n 次后含亲代链的分子数", chem:"2 个 DNA 分子含亲代链"}
+        {title:"DNA 复制 n 次后含亲代链的分子数", chem:"2 个 DNA 分子含亲代链"},
+        {title:"DNA 复制所需原料", chem:"复制 n 次需游离脱氧核苷酸数 = (2ⁿ - 1) × 每个 DNA 中该碱基数"},
+        {title:"DNA 复制特点", chem:"边解旋边复制，半保留复制"}
+      ]
+    },
+    {
+      group: "第四章 基因的表达",
+      items: [
+        {title:"转录", chem:"以 DNA 一条链为模板，合成 mRNA"},
+        {title:"翻译", chem:"以 mRNA 为模板，在核糖体上合成蛋白质"},
+        {title:"密码子", chem:"mRNA 上相邻 3 个碱基决定 1 个氨基酸，共 64 种"},
+        {title:"反密码子", chem:"tRNA 上与密码子互补配对的 3 个碱基"},
+        {title:"基因表达中的数量关系", chem:"DNA 碱基数 : mRNA 碱基数 : 氨基酸数 = 6 : 3 : 1"}
+      ]
+    },
+    {
+      group: "第五章 基因突变及其他变异",
+      items: [
+        {title:"基因突变", chem:"DNA 分子中发生碱基对的替换、增添或缺失"},
+        {title:"基因重组", chem:"减数分裂过程中非同源染色体自由组合或同源染色体非姐妹染色单体交叉互换"},
+        {title:"染色体结构变异", chem:"缺失、重复、倒位、易位"},
+        {title:"染色体数目变异", chem:"个别染色体增减或以染色体组为单位成倍增减"},
+        {title:"单倍体育种", chem:"花药离体培养获得单倍体，再用秋水仙素处理使染色体加倍"},
+        {title:"多倍体育种", chem:"用秋水仙素抑制纺锤体形成，使染色体数目加倍"}
       ]
     },
     {
       group: "第六章 生物的进化",
       items: [
+        {title:"基因频率（一对等位基因）", chem:"p = AA% + ½Aa%，q = aa% + ½Aa%"},
         {title:"哈迪-温伯格定律（基因频率）", chem:"p + q = 1"},
-        {title:"哈迪-温伯格定律（基因型频率）", chem:"p² + 2pq + q² = 1"}
+        {title:"哈迪-温伯格定律（基因型频率）", chem:"p² + 2pq + q² = 1"},
+        {title:"自然选择", chem:"使种群基因频率发生定向改变"},
+        {title:"物种形成标志", chem:"生殖隔离"}
       ]
     }
   ],
@@ -1850,16 +2982,39 @@ const EQ_DATA = {
     {
       group: "第一章 种群及其动态",
       items: [
+        {title:"种群密度", chem:"种群密度 = 个体总数 / 面积（或体积）"},
+        {title:"标记重捕法", chem:"N = M × C / R（M 为标记数，C 为重捕数，R 为重捕中标记数）"},
         {title:"J 型增长模型", chem:"Nₜ = N₀ · λᵗ"},
         {title:"S 型增长最大增长速率", chem:"种群数量为 K/2 时增长速率最大"},
-        {title:"种群密度", chem:"种群密度 = 个体总数 / 面积（或体积）"}
+        {title:"S 型增长环境容纳量", chem:"种群数量达到 K 值时趋于稳定"},
+        {title:"出生率与死亡率", chem:"自然增长率 = 出生率 - 死亡率"}
+      ]
+    },
+    {
+      group: "第二章 群落及其演替",
+      items: [
+        {title:"物种丰富度", chem:"群落中物种数目的多少"},
+        {title:"种间关系", chem:"竞争、捕食、寄生、互利共生"},
+        {title:"生态位", chem:"一个物种在群落中的地位或作用，包括所处空间、占用资源及与其他物种的关系"},
+        {title:"群落演替", chem:"随着时间的推移，一个群落被另一个群落代替的过程"}
       ]
     },
     {
       group: "第三章 生态系统及其稳定性",
       items: [
         {title:"能量传递效率", chem:"传递效率 = (下一营养级同化量 / 上一营养级同化量) × 100%"},
-        {title:"能量传递效率范围", chem:"相邻营养级间传递效率约为 10%~20%"}
+        {title:"能量传递效率范围", chem:"相邻营养级间传递效率约为 10%~20%"},
+        {title:"能量流动特点", chem:"单向流动、逐级递减"},
+        {title:"物质循环特点", chem:"全球性、循环往复"},
+        {title:"生态系统稳定性", chem:"抵抗力稳定性与恢复力稳定性通常呈负相关"}
+      ]
+    },
+    {
+      group: "第四章 人与环境",
+      items: [
+        {title:"环境承载力", chem:"环境能持续供养的最大人口数量"},
+        {title:"生态足迹", chem:"维持某一人口单位生存所需的生产资源和吸纳废物的土地及水域面积"},
+        {title:"生物多样性", chem:"基因多样性、物种多样性、生态系统多样性"}
       ]
     }
   ],
@@ -1869,29 +3024,56 @@ const EQ_DATA = {
       group: "第一章 宇宙中的地球",
       items: [
         {title:"正午太阳高度", chem:"H = 90° − |φ − δ|（φ 当地纬度，δ 太阳直射点纬度）"},
-        {title:"地方时换算", chem:"经度每差 15°，地方时差 1 小时"},
-        {title:"时区换算", chem:"所求区时 = 已知区时 ± 时区差 × 1 小时"},
-        {title:"日期变更（自西向东越过 180°）", chem:"日期减一天"}
+        {title:"地方时换算", chem:"经度每差 15°，地方时差 1 小时；每差 1°，差 4 分钟（东加西减）"},
+        {title:"时区换算", chem:"所求区时 = 已知区时 ± 时区差 × 1 小时（东加西减）"},
+        {title:"时区数计算", chem:"时区数 = 经度 / 15°（四舍五入取整）"},
+        {title:"中央经线", chem:"中央经线度数 = 时区数 × 15°"},
+        {title:"日期变更（自西向东越过 180°）", chem:"日期减一天"},
+        {title:"日期变更（自东向西越过 180°）", chem:"日期加一天"},
+        {title:"地球自转角速度", chem:"除南北极点外，各地约为 15°/小时"},
+        {title:"地球自转线速度", chem:"v = 1670·cosφ km/h（φ 为当地纬度）"}
       ]
     },
     {
       group: "第二章 地球上的大气",
       items: [
         {title:"气温垂直递减率", chem:"海拔每升高 100 m，气温下降约 0.6 ℃"},
-        {title:"对流层高度", chem:"低纬 17~18 km，中纬 10~12 km，高纬 8~9 km"}
+        {title:"对流层高度", chem:"低纬 17~18 km，中纬 10~12 km，高纬 8~9 km"},
+        {title:"热力环流", chem:"近地面受热上升、冷却下沉，形成高低气压"},
+        {title:"风的形成", chem:"水平气压梯度力是形成风的直接原因"}
       ]
     },
     {
       group: "第三章 地球上的水",
       items: [
-        {title:"水循环水量平衡", chem:"降水量 = 蒸发量 + 径流量 + 下渗量"}
+        {title:"水循环水量平衡", chem:"P = E + R + ΔS（降水量 = 蒸发量 + 径流量 + 储水变化量）"},
+        {title:"水循环环节", chem:"蒸发、水汽输送、降水、地表径流、下渗、地下径流"},
+        {title:"洋流影响", chem:"暖流增温增湿，寒流降温减湿"}
       ]
     },
     {
       group: "第四章 地貌",
       items: [
         {title:"等高线相对高度", chem:"H相 = H高 − H低"},
-        {title:"陡崖相对高度", chem:"(n−1)d ≤ ΔH < (n+1)d（n 重叠等高线条数，d 等高距）"}
+        {title:"陡崖相对高度", chem:"(n−1)d ≤ ΔH < (n+1)d（n 为重叠等高线条数，d 为等高距）"},
+        {title:"坡度", chem:"tanα = 垂直高差 / 水平距离"},
+        {title:"等高线判读", chem:"凸高为谷，凸低为脊；等高线密集处坡陡，稀疏处坡缓"},
+        {title:"比例尺缩放", chem:"比例尺放大到 n 倍，图幅面积变为 n² 倍"},
+        {title:"比例尺", chem:"比例尺 = 图上距离 / 实地距离"}
+      ]
+    },
+    {
+      group: "第五章 植被与土壤",
+      items: [
+        {title:"植被与环境", chem:"植被类型受热量、水分等气候条件影响"},
+        {title:"土壤剖面", chem:"有机层、腐殖质层、淋溶层、淀积层、母质层、母岩层"}
+      ]
+    },
+    {
+      group: "第六章 自然灾害",
+      items: [
+        {title:"洪涝灾害", chem:"降水多、地势低洼、排水不畅易引发洪涝"},
+        {title:"地震震级与烈度", chem:"震级反映能量大小，烈度反映破坏程度"}
       ]
     }
   ],
@@ -1902,21 +3084,42 @@ const EQ_DATA = {
       items: [
         {title:"人口自然增长率", chem:"自然增长率 = 出生率 − 死亡率"},
         {title:"人口密度", chem:"人口密度 = 人口数 / 面积（人/km²）"},
-        {title:"人口迁移率", chem:"迁移率 = (迁入 − 迁出) / 总人口 × 100%"}
+        {title:"人口迁移率", chem:"迁移率 = (迁入 − 迁出) / 总人口 × 100%"},
+        {title:"人口增长率", chem:"人口增长率 = 自然增长率 + 机械增长率"},
+        {title:"人口年龄结构", chem:"少年儿童人口比重、劳动年龄人口比重、老年人口比重"},
+        {title:"人口容量", chem:"一个国家或地区所能容纳的最高人口数量"}
       ]
     },
     {
       group: "第二章 乡村和城镇",
       items: [
         {title:"城市化水平", chem:"城市化水平 = (城镇人口 / 总人口) × 100%"},
-        {title:"城市等级与服务范围", chem:"城市等级越高，服务范围越大，服务种类越多"}
+        {title:"城市等级与服务范围", chem:"城市等级越高，服务范围越大，服务种类越多"},
+        {title:"城市功能分区", chem:"住宅区、商业区、工业区等"},
+        {title:"城镇化进程", chem:"初期缓慢、中期加速、后期趋缓"}
       ]
     },
     {
       group: "第三章 产业区位因素",
       items: [
         {title:"农业区位因素构成", chem:"自然因素 + 社会经济因素"},
-        {title:"工业区位选择因素", chem:"原料、市场、动力、劳动力、技术、政策等"}
+        {title:"工业区位选择因素", chem:"原料、市场、动力、劳动力、技术、政策等"},
+        {title:"服务业区位因素", chem:"市场、交通、劳动力、政策等"},
+        {title:"产业结构", chem:"第一产业、第二产业、第三产业产值（或就业）比重"}
+      ]
+    },
+    {
+      group: "第四章 交通运输布局与区域发展",
+      items: [
+        {title:"交通运输方式比较", chem:"从运量、运速、运费、灵活性等方面比较铁路、公路、水运、航空、管道"},
+        {title:"交通线区位因素", chem:"自然条件、社会经济条件、技术条件"}
+      ]
+    },
+    {
+      group: "第五章 环境与发展",
+      items: [
+        {title:"可持续发展", chem:"既满足当代人的需求，又不危及后代人满足其需求的发展"},
+        {title:"环境问题", chem:"环境污染、生态破坏、资源短缺"}
       ]
     }
   ],
@@ -1926,22 +3129,50 @@ const EQ_DATA = {
       group: "第一章 地球的运动",
       items: [
         {title:"太阳直射点纬度（近似）", chem:"δ = 23°26′ × sin(距春分日天数 / 365.25 × 360°)"},
+        {title:"太阳直射点纬度（按年积日）", chem:"δ ≈ 23.44° × sin[360°/365.24 × (N - 81)]（N 为年积日）"},
         {title:"昼夜长短", chem:"昼长 = 日落时间 − 日出时间"},
+        {title:"昼长与日出日落", chem:"昼长 = 2 × (12 − 日出时间) = 2 × (日落时间 − 12)"},
         {title:"日出日落时间", chem:"日出时间 = 12 − 昼长/2；日落时间 = 12 + 昼长/2"},
-        {title:"正午太阳高度（应用）", chem:"H = 90° − |φ − δ|"}
+        {title:"正午太阳高度（应用）", chem:"H = 90° − |φ − δ|"},
+        {title:"地方时计算", chem:"所求地方时 = 已知地方时 ± 经度差 × 4 分钟（东加西减）"},
+        {title:"区时计算", chem:"所求区时 = 已知区时 ± 时区差 × 1 小时（东加西减）"},
+        {title:"日期范围", chem:"新的一天范围从 0 时经线向东到 180° 经线"}
       ]
     },
     {
       group: "第二章 地表形态的塑造",
       items: [
-        {title:"侵蚀强度影响因素", chem:"与流速、坡度、降水强度正相关"}
+        {title:"内力作用", chem:"地壳运动、岩浆活动、变质作用"},
+        {title:"外力作用", chem:"风化、侵蚀、搬运、堆积"},
+        {title:"侵蚀强度影响因素", chem:"与流速、坡度、降水强度正相关"},
+        {title:"河流堆积规律", chem:"流速减慢时，颗粒大、比重大的先沉积"}
       ]
     },
     {
       group: "第三章 大气的运动",
       items: [
         {title:"气压带分布（自赤道向极地）", chem:"赤道低压带—副热带高压带—副极地低压带—极地高压带"},
-        {title:"风带分布（自赤道向极地）", chem:"信风带—西风带—极地东风带"}
+        {title:"风带分布（自赤道向极地）", chem:"信风带—西风带—极地东风带"},
+        {title:"季风成因", chem:"海陆热力性质差异和气压带风带季节移动"},
+        {title:"冷锋过境", chem:"气温下降、气压升高、天气转晴"},
+        {title:"暖锋过境", chem:"气温上升、气压下降、连续性降水"}
+      ]
+    },
+    {
+      group: "第四章 水的运动",
+      items: [
+        {title:"洋流分布规律", chem:"中低纬海区形成以副热带为中心的大洋环流，北半球顺时针、南半球逆时针"},
+        {title:"洋流对气候的影响", chem:"暖流增温增湿，寒流降温减湿"},
+        {title:"洋流对渔场的影响", chem:"寒暖流交汇或上升流处易形成大渔场"}
+      ]
+    },
+    {
+      group: "第五章 自然环境的整体性与差异性",
+      items: [
+        {title:"纬度地带性", chem:"以热量为基础，自然带沿纬度变化方向更替"},
+        {title:"干湿度地带性", chem:"以水分为基础，自然带从沿海向内陆更替"},
+        {title:"垂直地带性", chem:"随海拔升高，水热条件变化，自然带垂直更替"},
+        {title:"自然环境的整体性", chem:"各要素相互联系、相互制约，牵一发而动全身"}
       ]
     }
   ]
@@ -1974,10 +3205,6 @@ if('onscrollend' in window){
 }
 let matchCards = [];            // 当前可导航的元素（卡片 或 PDF span）
 let matchIndex = -1;
-let livePreviewTimer = null;
-let livePreviewToken = 0;
-const MIN_ZOOM = 0.4;
-const MAX_ZOOM = 4;
 let showEquations = false;
 
 /* PDF/TXT 状态 */
@@ -2601,7 +3828,6 @@ function makeCondInput(val, idx){
       commitDraft();
     }
     updateNavBtns();
-    scheduleLiveAllCounts();
   };
 
   if(idx > 0){
@@ -2611,7 +3837,6 @@ function makeCondInput(val, idx){
     op.onclick = ()=>{
       draftCondLogic[idx-1] = draftCondLogic[idx-1]==='or'?'and':'or';
       renderCondArea();
-      scheduleLiveAllCounts();
     };
     wrap.appendChild(op);
   }
@@ -2626,7 +3851,6 @@ function makeCondInput(val, idx){
       draftConditions.splice(idx,1);
       draftCondLogic.splice(idx-1,1);
       renderCondArea();
-      scheduleLiveAllCounts();
     };
     wrap.appendChild(del);
   }
@@ -2647,7 +3871,6 @@ function renderCondArea(){
     draftConditions.push('');
     draftCondLogic.push('and');
     renderCondArea();
-    scheduleLiveAllCounts();
   };
   searchArea.appendChild(add);
   if(window.__syncTopSpacer) setTimeout(window.__syncTopSpacer, 0);
@@ -2655,6 +3878,18 @@ function renderCondArea(){
 }
 
 /* ==================== 关键词扩展 ==================== */
+/* 全角/中文标点 → 半角英文符号，让 ca（oh）2 与 ca(oh)2 都能匹配 Ca(OH)₂ */
+function normalizeWidth(s){
+  if(s == null) return '';
+  return String(s)
+    .replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/\u3000/g, ' ')
+    .replace(/[。｡]/g, '.')
+    .replace(/[、]/g, ',')
+    .replace(/[～〜]/g, '~')
+    .replace(/[·•・‧]/g, '.');
+}
+
 /* 数字 → 下标 */
 const SUB_MAP = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
 /* 数字 → 上标（用于电荷，如 Fe2+ ↔ Fe²⁺） */
@@ -2682,16 +3917,34 @@ function fromSuperCharge(s){
   return out;
 }
 
-/* 数字 ↔ 下标 双向扩展 */
+/* 结晶水合物中的点：. 与 · 互通（仅用于高亮/兼容旧写法） */
+function addDotVariants(set){
+  const extra = [];
+  set.forEach(kw=>{
+    if(kw.includes('.')) extra.push(kw.split('.').join('·'));
+  });
+  extra.forEach(v => set.add(v));
+}
+
+/* 数字 ↔ 下标 双向扩展（水合物中 · 后的系数不转下标） */
 function addSubVariants(set){
   const extra = [];
   set.forEach(kw=>{
-    let withSub = kw;
-    for(const d in SUB_MAP) withSub = withSub.split(d).join(SUB_MAP[d]);
+    let withSub = '';
+    for(let i=0; i<kw.length; i++){
+      const ch = kw[i];
+      // CuSO4.5H2O 里的 5 是结晶水系数，不应写成下标
+      if(SUB_MAP[ch] && kw[i-1] !== '.' && kw[i-1] !== '·') withSub += SUB_MAP[ch];
+      else withSub += ch;
+    }
     if(withSub !== kw) extra.push(withSub);
 
-    let plain = kw;
-    for(const d in SUB_MAP) plain = plain.split(SUB_MAP[d]).join(d);
+    let plain = '';
+    for(const ch of kw){
+      let hit = false;
+      for(const d in SUB_MAP){ if(ch === SUB_MAP[d]){ plain += d; hit = true; break; } }
+      if(!hit) plain += ch;
+    }
     if(plain !== kw) extra.push(plain);
   });
   extra.forEach(v => set.add(v));
@@ -2743,28 +3996,30 @@ function addSymbolVariants(set){
 
 /* 综合扩展：中文名 ↔ 化学式、下标 ↔ 数字、电荷上标 ↔ 普通 */
 function expandKeyword(kw){
-  const set = new Set([kw]);
+  const base = normalizeWidth(kw).toLowerCase();
+  const set = new Set([kw, base]);
 
   /* —— 同义词组扩展 —— */
-  const syns = SYNONYM_MAP.get(kw);
+  const syns = SYNONYM_MAP.get(base);
   if(syns){
     syns.forEach(v => set.add(v));
   }
 
   /* 原有的中文 ↔ 化学式 双向扩展 */
   for(const [zh, fSet] of Object.entries(ZH_FORMULA)){
-    if(kw.includes(zh)){
-      fSet.forEach(f=>{ set.add(kw.split(zh).join(f.toLowerCase())); });
+    if(base.includes(zh)){
+      fSet.forEach(f=>{ set.add(base.split(zh).join(f.toLowerCase())); });
     }
   }
 
   for(const [f, zh] of Object.entries(FORMULA_ZH)){
-    const fLower = f.toLowerCase();
-    if(kw.includes(fLower)){
-      set.add(kw.split(fLower).join(zh));
+    const fLower = normalizeWidth(f).toLowerCase();
+    if(base.includes(fLower)){
+      set.add(base.split(fLower).join(zh));
     }
   }
 
+  addDotVariants(set);
   addSubVariants(set);
   addChargeVariants(set);
   addSymbolVariants(set);   // ← 新增
@@ -2840,9 +4095,9 @@ function matchText(item, kw){
   kw = kw.trim().toLowerCase();
   if(!kw) return true;
 
-  let hay = (item.title + ' ' + item.tags.join(' ') + ' ' + item.content).toLowerCase();
+  let hay = normalizeWidth(item.title + ' ' + item.tags.join(' ') + ' ' + item.content).toLowerCase();
   if(item.exercises && item.exercises.length){
-    item.exercises.forEach(ex=>{ hay += ' ' + ex.q + ' ' + ex.a; });
+    item.exercises.forEach(ex=>{ hay += ' ' + normalizeWidth(ex.q + ' ' + ex.a).toLowerCase(); });
   }
 
   const variants = expandKeyword(kw);
@@ -2855,9 +4110,9 @@ function isMatch(item){
   if(groups.length === 0) return true;
 
   // —— 元数据字段的合并文本 ——
-  const metaText = [item.book, item.chapter, item.section, item.title]
-    .filter(Boolean).join(' ').toLowerCase();
-  const matchMeta = w => metaText.includes(w.toLowerCase());
+  const metaText = normalizeWidth([item.book, item.chapter, item.section, item.title]
+    .filter(Boolean).join(' ')).toLowerCase();
+  const matchMeta = w => metaText.includes(normalizeWidth(w).toLowerCase());
 
   // 每个关键词：命中正文/标签/习题 或 命中元数据，都算命中
   const matchGroup = words => words.every(w => matchText(item, w) || matchMeta(w));
@@ -2977,7 +4232,10 @@ function withScrollAnchor(doToggle){
 /* ---------- 方程式视图渲染 ---------- */
 function renderEqText(line, entries){
   const conds = [];
-  let raw = line.replace(/=([^=]+)=/g, (m, cond) => {
+  // 只把真正的化学反应用条件识别为“等号上的条件”，避免数理公式中的多个等号被误判
+  const COND_SRC = '(?:点燃|高温高压|高温|加热|Δ|通电|电解|光照|催化剂|酒化酶|脲酶|酶|放电|风化|充电|浓硫酸|稀硫酸|H\\+|NaOH|KOH|Ni|Cu|MnO₂|FeBr₃|FeCl₃|酸性KMnO₄|水|醇|光|叶绿体|色素|酸或酶|酸|碱)(?:[\\/／][^=\n]{0,20})?';
+  const COND_EQ_RE = new RegExp('=(' + COND_SRC + ')=', 'g');
+  let raw = line.replace(COND_EQ_RE, (m, cond) => {
     conds.push(cond);
     return '\uE000C' + (conds.length - 1) + '\uE001';
   });
@@ -3073,8 +4331,8 @@ function eqItemMatches(it, entries){
   const t = it.t || it.title || '';
   const c = it.c || it.chem || '';
   const i = it.i || it.ion || '';
-  const hay = (t + ' ' + c + ' ' + i).toLowerCase();
-  return entries.some(e => e.word && hay.includes(e.word));
+  const hay = normalizeWidth(t + ' ' + c + ' ' + i).toLowerCase();
+  return entries.some(e => e.word && hay.includes(normalizeWidth(e.word).toLowerCase()));
 }
 
 function renderEquations(){
@@ -3120,9 +4378,10 @@ function renderEquations(){
     countEl.textContent = `共 ${total} 个匹配的公式`;
     hintEl.textContent = '已按关键词过滤';
   } else {
-    const subjLabel = eqSubject ? eqSubject + '公式' : '公式';
-    countEl.textContent = `共 ${total} 个${subjLabel}`
-      + (eqSubject === '化学' && typeof EQ_CONFUSE !== 'undefined' ? ` + ${EQ_CONFUSE.length} 条易混淆对比` : '');
+    const subjLabel = eqSubject === '化学' ? '化学公式与俗称' : (eqSubject ? eqSubject + '公式' : '公式');
+    const confuseCount = (eqSubject === '化学' && typeof EQ_CONFUSE !== 'undefined') ? EQ_CONFUSE.length : 0;
+    countEl.textContent = `共 ${total - confuseCount} 个${subjLabel}`
+      + (confuseCount ? ` + ${confuseCount} 条易混淆对比` : '');
     hintEl.textContent = '按教材版块分类 · 点击卡片展开';
   }
 
@@ -3267,7 +4526,6 @@ function renderAll(){
     ...Object.entries(EQ_DATA).map(([book, rawGroups])=>({name:book, groups:rawGroups}))
   ];
 
-  let eqPart = 0;
   allEq.forEach(item=>{
     let count = 0;
     if(item.isConfuse){
@@ -3279,7 +4537,6 @@ function renderAll(){
       });
     }
     if(hasKeyword && count === 0) return;   // 有关键词时过滤掉无匹配的
-    eqPart += count;
 
     const card = document.createElement('div');
     card.className = 'card';
@@ -3308,12 +4565,11 @@ function renderAll(){
   // ========== 状态栏 ==========
   let bookPart = 0;
   bookMap.forEach(c => bookPart += c);
+  const bookLabel = bookMap.size > 0 ? `教材 ${bookMap.size} 本（${bookPart} 页） + ` : '';
   if(hasKeyword){
-    // 教材匹配数 + 公式匹配数；不要用 matchCards.length（那是卡片数）
-    countEl.textContent = `共 ${bookPart + eqPart} 处匹配`;
+    countEl.textContent = `${bookLabel}共 ${matchCards.length} 处匹配`;
     hintEl.textContent = '已按关键词过滤';
   } else {
-    const bookLabel = bookMap.size > 0 ? `教材 ${bookMap.size} 本（${bookPart} 页） + ` : '';
     countEl.textContent = `${bookLabel}公式速查`;
     hintEl.textContent = '教材优先 · 公式在后';
   }
@@ -3323,81 +4579,6 @@ function renderAll(){
   matchIndex = -1;
   updateNavBtns();
 }
-
-/* ==================== “全部”视图：输入时实时更新各卡片匹配数 ==================== */
-/* 只做预览：临时用草稿条件重算列表，再恢复已提交条件；不会滚动或跳转。 */
-function isAllView(){
-  return !showEquations && eqSubject === '' && currentBooks.size === 0;
-}
-
-function captureAllPreviewAnchor(){
-  const topBarH = document.querySelector('.top-bar').offsetHeight;
-  const cards = listEl.querySelectorAll('.card');
-  for(const c of cards){
-    const r = c.getBoundingClientRect();
-    if(r.bottom > topBarH + 10){
-      return {
-        bookName: c.dataset.bookName || '',
-        eqName: c.dataset.eqName || '',
-        cardText: (c.querySelector('.card-title')?.textContent || '').trim(),
-        offset: r.top - topBarH,
-        scrollY: window.scrollY
-      };
-    }
-  }
-  return { scrollY: window.scrollY };
-}
-
-function restoreAllPreviewAnchor(anchor){
-  if(!anchor) return;
-  const topBarH = document.querySelector('.top-bar').offsetHeight;
-  if(anchor.bookName || anchor.eqName || anchor.cardText){
-    for(const c of listEl.querySelectorAll('.card')){
-      const title = (c.querySelector('.card-title')?.textContent || '').trim();
-      const same = (anchor.bookName && c.dataset.bookName === anchor.bookName) ||
-                   (anchor.eqName && c.dataset.eqName === anchor.eqName) ||
-                   (!anchor.bookName && !anchor.eqName && anchor.cardText && title === anchor.cardText);
-      if(same){
-        const r = c.getBoundingClientRect();
-        const top = r.top + window.scrollY - topBarH - (anchor.offset || 0);
-        window.scrollTo({top: Math.max(0, top), behavior: 'auto'});
-        return;
-      }
-    }
-  }
-  if(typeof anchor.scrollY === 'number'){
-    window.scrollTo({top: Math.max(0, anchor.scrollY), behavior: 'auto'});
-  }
-}
-
-function scheduleLiveAllCounts(){
-  const token = ++livePreviewToken;
-  if(livePreviewTimer) clearTimeout(livePreviewTimer);
-  livePreviewTimer = setTimeout(()=>{
-    livePreviewTimer = null;
-    if(token !== livePreviewToken) return;
-    if(!draftHasChanges() || !isAllView()) return;
-    if(!listEl || listEl.style.display === 'none') return;
-
-    const savedConditions = conditions;
-    const savedLogic = condLogic;
-    const anchor = captureAllPreviewAnchor();
-    try{
-      conditions = draftConditions.slice();
-      condLogic = draftCondLogic.slice();
-      renderAll();
-    }catch(err){
-      console.warn('实时更新匹配数失败：', err);
-    }finally{
-      conditions = savedConditions;
-      condLogic = savedLogic;
-    }
-    if(token === livePreviewToken) restoreAllPreviewAnchor(anchor);
-    // 预览时临时条件会让 draftHasChanges() 变成 false，恢复后重新同步导航按钮
-    updateNavBtns();
-  }, 180);
-}
-
 function highlightSvgText(container, entries){
   const texts = container.querySelectorAll('text');
   texts.forEach(t => {
@@ -3560,12 +4741,10 @@ function render(){
   // 2) 无历史位置：
   if(hasKw){
     if(matchCards.length > 0){
+      matchIndex = 0;
       if(suppressAutoJump){
-        // 刚提交新关键词：保留 highlightPdfMatches 选中的“当前页”位置
-        if(matchIndex < 0 || matchIndex >= matchCards.length) matchIndex = 0;
-        highlightCardNoScroll();
+        highlightCardNoScroll();   // 只标记不滚动，由 handleNav 决定最终跳到哪
       } else {
-        matchIndex = 0;
         highlightCard();
       }
       if(bookName) saveBookPosition(bookName);
@@ -3584,7 +4763,7 @@ function render(){
 /* ---------- PDF / TXT 搜索高亮（精确关键词高亮 + 多色 + 页级过滤） ---------- */
 function normalizeForMatch(s){
   if(!s) return '';
-  s = cleanLatex(String(s));
+  s = normalizeWidth(cleanLatex(String(s)));
   return s.toLowerCase().replace(/[\s\u3000]+/g, '');
 }
 
@@ -3714,7 +4893,7 @@ function processPageForSearch(pageEl, groupVariants){
       const ch = raw[i];
       if(/\s/.test(ch) || ch === '\u3000') continue;
       normToRaw.push(i);
-      norm += ch.toLowerCase();
+      norm += normalizeWidth(ch).toLowerCase();
     }
     if(norm.length){
       entries.push({node, norm, normToRaw, startInFull: fullNorm.length});
@@ -3833,7 +5012,7 @@ function processTxtDocForSearch(txtDoc, groupVariants){
       const ch = raw[i];
       if(/\s/.test(ch) || ch === '\u3000') continue;
       normToRaw.push(i);
-      norm += ch.toLowerCase();
+      norm += normalizeWidth(ch).toLowerCase();
     }
     return {line: l, raw, norm, normToRaw};
   });
@@ -3945,19 +5124,12 @@ function updateNavBtns(){
 
   const hasMatch = matchCards.length > 0;
   const draftDirty = draftHasChanges();
-  if(draftDirty){
-    // 关键词有改动时，四个导航键都先提交再按新结果跳转
-    prev.disabled = false;
-    next.disabled = false;
-    if(prevPage) prevPage.disabled = false;
-    if(nextPage) nextPage.disabled = false;
-    return;
-  }
   if(!hasMatch){
-    prev.disabled = true;
-    next.disabled = true;
-    if(prevPage) prevPage.disabled = true;
-    if(nextPage) nextPage.disabled = true;
+    // 关键词有改动时也允许点导航（会先提交再跳）
+    prev.disabled = !draftDirty;
+    next.disabled = !draftDirty;
+    if(prevPage) prevPage.disabled = !draftDirty;
+    if(nextPage) nextPage.disabled = !draftDirty;
     return;
   }
 
@@ -4117,62 +5289,17 @@ function commitDraft(){
   return changed;
 }
 
-/* 记录提交新关键词前的页面锚点：新搜索从当前页开始 */
-function capturePageSearchAnchor(){
-  if(!pdfList || pdfList.style.display === 'none') return null;
-  const pages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
-    .filter(p=>p.style.display !== 'none');
-  if(!pages.length) return null;
-  const page = getCurrentVisiblePage();
-  return { page, pageIndex: page ? pages.indexOf(page) : -1 };
-}
-
-/* 在重新生成的 matchCards 里，找当前页（或之后/之前）的第一个匹配 */
-function matchIndexFromPageAnchor(anchor, dir){
-  if(!matchCards.length) return -1;
-  if(anchor){
-    const pages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
-      .filter(p=>p.style.display !== 'none');
-    let base = -1;
-    if(anchor.page && anchor.page.isConnected) base = pages.indexOf(anchor.page);
-    if(base < 0) base = anchor.pageIndex;
-    if(base >= 0){
-      if(dir > 0){
-        // ↓ / Enter：从当前页的第一个匹配开始；当前页没有就往后找
-        for(let i=0;i<matchCards.length;i++){
-          const pi = pages.indexOf(pageOfMatch(matchCards[i]));
-          if(pi >= base) return i;
-        }
-      } else {
-        // ↑：从当前页的最后一个匹配开始；当前页没有就往前找
-        for(let i=matchCards.length-1;i>=0;i--){
-          const pi = pages.indexOf(pageOfMatch(matchCards[i]));
-          if(pi >= 0 && pi <= base) return i;
-        }
-      }
-    }
-  }
-  return dir > 0 ? 0 : matchCards.length - 1;
-}
-
-/* 提交草稿并把首次跳转锚定在“当前页”，而不是固定回到第 1 页 */
-function jumpToDraftAnchor(dir){
-  const anchor = capturePageSearchAnchor();
-  commitDraft();
-  if(matchCards.length > 0){
-    let idx = matchIndexFromPageAnchor(anchor, dir);
-    if(idx < 0) idx = dir > 0 ? 0 : matchCards.length - 1;
-    matchIndex = idx;
-    highlightCard();
-    const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
-    if(bn) saveBookPosition(bn);
-  }
-}
-
 /* ★ 导航按钮统一入口：先提交（如果需要），再跳转 */
 function handleNav(dir){
   if(draftHasChanges()){
-    jumpToDraftAnchor(dir);
+    commitDraft();
+    // 提交完后决定跳到哪端
+    if(matchCards.length > 0){
+      matchIndex = dir > 0 ? 0 : matchCards.length - 1;
+      highlightCard();
+      const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
+      if(bn) saveBookPosition(bn);
+    }
     return;
   }
   jumpByMatch(dir);
@@ -4181,7 +5308,13 @@ function handleNav(dir){
 /* ← / →：先提交草稿，再按页跳转 */
 function handlePageNav(dir){
   if(draftHasChanges()){
-    jumpToDraftAnchor(dir);
+    commitDraft();
+    if(matchCards.length > 0){
+      matchIndex = dir > 0 ? 0 : matchCards.length - 1;
+      highlightCard();
+      const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
+      if(bn) saveBookPosition(bn);
+    }
     return;
   }
   jumpByPage(dir);
@@ -4338,20 +5471,13 @@ function jumpByPage(dir){
 /* 当前视口中第一个可见的页面（跳过顶栏遮挡） */
 function getCurrentVisiblePage(){
   const topBarH = document.querySelector('.top-bar').offsetHeight;
-  const vh = window.innerHeight;
   const pages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
     .filter(p => p.style.display !== 'none');
-  let best = null, bestVisible = 0;
   for(const p of pages){
     const r = p.getBoundingClientRect();
-    // 取页面在“顶栏以下、视口以内”的可见高度；上一页露出的几像素不算当前页
-    const visible = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, topBarH));
-    if(visible > bestVisible){
-      bestVisible = visible;
-      best = p;
-    }
+    if(r.bottom > topBarH + 10) return p;
   }
-  return best || pages[pages.length - 1] || null;
+  return pages[0] || null;
 }
 
 /* 只做视觉标记，不滚动 */
@@ -4595,8 +5721,8 @@ svgOverlay.onclick = ()=> svgOverlay.classList.remove('show');
 const gZoomInBtn  = document.getElementById('zoomInBtn');
 const gZoomOutBtn = document.getElementById('zoomOutBtn');
 function updateZoomBtns(){
-  if(gZoomInBtn) gZoomInBtn.disabled = pdfZoom >= MAX_ZOOM;
-  if(gZoomOutBtn) gZoomOutBtn.disabled = pdfZoom <= MIN_ZOOM;
+  if(gZoomInBtn) gZoomInBtn.disabled = pdfZoom >= 4;
+  if(gZoomOutBtn) gZoomOutBtn.disabled = pdfZoom <= 1.0;
 }
 /* ==================== 状态 ==================== */
 let conditions      = [''];   // ★ 已提交的搜索条件（必须有）
@@ -4957,7 +6083,7 @@ function getSubjectOfKey(key){
     if(!target) return;
 
     const oldZoom = pdfZoom;
-    const targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, +(+newZoom).toFixed(2)));
+    const targetZoom = Math.max(1.0, Math.min(4, +(+newZoom).toFixed(2)));
     if(Math.abs(targetZoom - oldZoom) < 0.001) return;
 
     const vw = document.documentElement.clientWidth;
@@ -5034,7 +6160,7 @@ document.addEventListener('touchmove', e=>{
     );
     const rawRatio = dist / pinchStart;
     const dampedRatio = 1 + (rawRatio - 1) * 0.45;
-    pinchPendingZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchBaseZoom * dampedRatio));
+    pinchPendingZoom = Math.max(1.0, Math.min(4, pinchBaseZoom * dampedRatio));
     pinchPendingCx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
     pinchPendingCy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
     if(!pinchRafId) pinchRafId = requestAnimationFrame(flushPinchZoom);
