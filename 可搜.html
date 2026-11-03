@@ -117,6 +117,9 @@ body{font-family:var(--ff,-apple-system,BlinkMacSystemFont,"PingFang SC","Helvet
 
 .tag{font-size:0.733rem;padding:2px 8px;border-radius:6px;background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7}
 .arrow{flex-shrink:0;width:18px;height:18px;margin-top:3px;color:#cbd5e1;transition:transform .25s}
+.lock-btn{flex-shrink:0;width:28px;height:28px;border-radius:50%;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:1px;padding:0;font-family:inherit;transition:.15s}
+.lock-btn.locked{background:#E8F5E9;border-color:#A5D6A7;color:#2E7D32}
+.lock-btn:active{transform:scale(.92)}
 
 .card.open .arrow{transform:rotate(90deg);color:#2E7D32}
 .card-body{max-height:0;overflow:hidden;transition:max-height .22s ease}
@@ -611,6 +614,11 @@ body.boot-loading{overflow:hidden}
 .chip-close:active{transform:scale(.9)}
 .chip.active .chip-close{background:rgba(46,125,50,.16);color:#2E7D32}
 .chip.active .chip-close:hover{background:#ef4444;color:#fff}
+/* 已锁定教材：禁用 chip 上的 ×，必须先解锁 */
+.chip-close.locked{cursor:not-allowed;opacity:.45;background:rgba(255,255,255,.18)}
+.chip-close.locked:hover{background:rgba(255,255,255,.18)}
+.chip.active .chip-close.locked{background:rgba(46,125,50,.08);color:#94a3b8}
+.chip.active .chip-close.locked:hover{background:rgba(46,125,50,.08);color:#94a3b8}
 
 /* ================= 图片文档 ================= */
 .pdf-page.img-doc{background:#fff;min-height:60px;display:flex;align-items:center;justify-content:center}
@@ -8505,13 +8513,28 @@ function buildChips(){
       x.type = 'button';
       x.className = 'chip-close';
       x.textContent = '×';
-      x.title = '关闭「' + b + '」并清空缓存';
-      x.setAttribute('aria-label', '关闭 ' + b);
-      x.onclick = (ev)=>{
-        ev.stopPropagation();
-        ev.preventDefault();
-        closeBookChip(b);
-      };
+
+      const locked = !!(window.__kesouLock && window.__kesouLock.isLocked(b));
+      if(locked){
+        // 锁定后禁止用 × 关闭，避免误删已缓存的教材
+        x.classList.add('locked');
+        x.title = '已锁定，请先解锁后再关闭';
+        x.setAttribute('aria-label', '已锁定，无法关闭');
+        x.setAttribute('aria-disabled', 'true');
+        x.onclick = (ev)=>{
+          ev.stopPropagation();
+          ev.preventDefault();
+          toast('已锁定，请先解锁后再关闭');
+        };
+      } else {
+        x.title = '关闭「' + b + '」并清空缓存';
+        x.setAttribute('aria-label', '关闭 ' + b);
+        x.onclick = (ev)=>{
+          ev.stopPropagation();
+          ev.preventDefault();
+          closeBookChip(b);
+        };
+      }
       c.appendChild(x);
     }
 
@@ -9359,12 +9382,19 @@ function renderAll(){
       card.style.cursor = 'pointer';
       card.dataset.bookName = bookName;   // ★ 标记，方便跳转
 
+      const lockable = !!(window.__kesouLock && window.__kesouLock.isImported(bookName));
+      const locked = !!(lockable && window.__kesouLock.isLocked(bookName));
+      const lockLabel = locked
+        ? '已锁定：下次自动加载（点击解锁并清缓存）'
+        : '锁定：下次自动加载并缓存到浏览器';
+
       card.innerHTML = `
         <div class="card-head" style="padding:12px 15px;">
           <div class="card-head-left">
             <div class="card-title" style="font-size:0.98rem;">${escapeHtml(bookName)}</div>
             <div class="card-meta">${hasKeyword ? count + ' 处匹配' : count + ' 页'}</div>
           </div>
+          ${lockable ? `<button class="lock-btn${locked ? ' locked' : ''}" type="button" title="${escapeHtml(lockLabel)}" aria-label="${escapeHtml(lockLabel)}">${locked ? '🔒' : '🔓'}</button>` : ''}
           <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
         </div>
       `;
@@ -9374,6 +9404,28 @@ function renderAll(){
       card.onclick = ()=>{
         jumpToBookChip(bookName);
       };
+
+      const lockBtn = card.querySelector('.lock-btn');
+      if(lockBtn && window.__kesouLock){
+        lockBtn.onclick = async (ev)=>{
+          ev.stopPropagation();
+          ev.preventDefault();
+          try{
+            const nowLocked = await window.__kesouLock.toggle(bookName);
+            lockBtn.textContent = nowLocked ? '🔒' : '🔓';
+            lockBtn.classList.toggle('locked', nowLocked);
+            const label = nowLocked
+              ? '已锁定：下次自动加载（点击解锁并清缓存）'
+              : '锁定：下次自动加载并缓存到浏览器';
+            lockBtn.title = label;
+            lockBtn.setAttribute('aria-label', label);
+            // 同步刷新顶部 chip：锁定后 × 立即失效，解锁后恢复
+            buildChips();
+          }catch(err){
+            toast('锁定失败：' + (err.message || '未知错误'), 4000);
+          }
+        };
+      }
 
       listEl.appendChild(card);
     });
@@ -10745,6 +10797,257 @@ function getSubjectOfKey(key){
     if(!bookPdfIds.has(bookName)) bookPdfIds.set(bookName, new Set());
     bookPdfIds.get(bookName).add(pdfId);
   }
+
+  /* ==================== 锁定教材：浏览器持久缓存 ==================== */
+  const LOCK_DB = 'kesou-locks';
+  const LOCK_STORE = 'books';
+  const LOCK_LS_KEY = 'kesou.lockedBooks.v1';
+  const importedFileObjects = new Map(); // fileKey -> File（锁定时需要原始文件）
+  const fileHandles = new Map();         // fileKey -> FileSystemFileHandle
+  const lockedBooks = new Map();         // bookName -> {bookName, files:[meta], lockedAt}
+
+  (function loadLockedMeta(){
+    try{
+      const arr = JSON.parse(localStorage.getItem(LOCK_LS_KEY) || '[]');
+      if(Array.isArray(arr)){
+        arr.forEach(x=>{
+          if(x && x.bookName && Array.isArray(x.files)) lockedBooks.set(x.bookName, x);
+        });
+      }
+    }catch(e){}
+  })();
+
+  function persistLockedMeta(){
+    try{
+      localStorage.setItem(LOCK_LS_KEY, JSON.stringify([...lockedBooks.values()]));
+    }catch(e){}
+  }
+
+  function openLockDB(){
+    return new Promise((resolve, reject)=>{
+      if(!('indexedDB' in window)) return reject(new Error('IndexedDB 不可用'));
+      const req = indexedDB.open(LOCK_DB, 1);
+      req.onupgradeneeded = ()=>{
+        const db = req.result;
+        if(!db.objectStoreNames.contains(LOCK_STORE)){
+          db.createObjectStore(LOCK_STORE, {keyPath:'bookName'});
+        }
+      };
+      req.onsuccess = ()=>resolve(req.result);
+      req.onerror = ()=>reject(req.error || new Error('IndexedDB 打开失败'));
+    });
+  }
+
+  function saveLockRecord(record){
+    return openLockDB().then(db=>new Promise((resolve, reject)=>{
+      const tx = db.transaction(LOCK_STORE, 'readwrite');
+      tx.objectStore(LOCK_STORE).put(record);
+      tx.oncomplete = ()=>{ try{ db.close(); }catch(e){}; resolve(); };
+      tx.onerror = ()=>{ try{ db.close(); }catch(e){}; reject(tx.error || new Error('缓存写入失败')); };
+      tx.onabort = ()=>{ try{ db.close(); }catch(e){}; reject(tx.error || new Error('缓存写入中止')); };
+    }));
+  }
+
+  function deleteLockRecord(bookName){
+    return openLockDB().then(db=>new Promise(resolve=>{
+      const tx = db.transaction(LOCK_STORE, 'readwrite');
+      tx.objectStore(LOCK_STORE).delete(bookName);
+      tx.oncomplete = ()=>{ try{ db.close(); }catch(e){}; resolve(); };
+      tx.onerror = ()=>{ try{ db.close(); }catch(e){}; resolve(); };
+    })).catch(()=>{});
+  }
+
+  function getAllLockRecords(){
+    return openLockDB().then(db=>new Promise((resolve, reject)=>{
+      const tx = db.transaction(LOCK_STORE, 'readonly');
+      const rq = tx.objectStore(LOCK_STORE).getAll();
+      rq.onsuccess = ()=>resolve(rq.result || []);
+      rq.onerror = ()=>reject(rq.error || new Error('缓存读取失败'));
+      tx.oncomplete = ()=>{ try{ db.close(); }catch(e){}; };
+    })).catch(()=>[]);
+  }
+
+  async function lockBook(bookName){
+    const keys = bookFiles.get(bookName);
+    if(!keys || !keys.size) throw new Error('没有可锁定的文件');
+
+    const metas = [];
+    const recordFiles = [];
+    keys.forEach(key=>{
+      const file = importedFileObjects.get(key);
+      if(!file) return;
+      const meta = {
+        fileName: file.name || key.split('::')[0],
+        size: file.size || 0,
+        lastModified: file.lastModified || Date.now(),
+        type: file.type || ''
+      };
+      metas.push(meta);
+      recordFiles.push(Object.assign({}, meta, {
+        blob: file,
+        handle: fileHandles.get(key) || null
+      }));
+    });
+    if(!metas.length) throw new Error('找不到原始文件，请重新导入后再锁定');
+
+    const meta = {bookName, files: metas, lockedAt: Date.now()};
+    lockedBooks.set(bookName, meta);
+    persistLockedMeta();
+
+    try{
+      await saveLockRecord({bookName, files: recordFiles});
+      if(navigator.storage && navigator.storage.persist){
+        try{ navigator.storage.persist(); }catch(e){}
+      }
+      toast('已锁定「' + bookName + '」，下次打开会自动加载');
+      return true;
+    }catch(err){
+      console.warn('锁定缓存失败：', err);
+      // 有些浏览器不能把 FileSystemFileHandle 存进 IndexedDB，先退回只存文件内容
+      try{
+        const blobOnly = recordFiles.map(f=>({
+          fileName:f.fileName, size:f.size, lastModified:f.lastModified, type:f.type, blob:f.blob
+        }));
+        await saveLockRecord({bookName, files: blobOnly});
+        toast('已锁定「' + bookName + '」，下次打开会自动加载');
+        return true;
+      }catch(e2){}
+      // 文件内容也存不下时，如果所有文件都有路径句柄，至少保存句柄
+      const handlesOnly = recordFiles
+        .filter(f=>f.handle)
+        .map(f=>({fileName:f.fileName, size:f.size, lastModified:f.lastModified, type:f.type, handle:f.handle}));
+      if(handlesOnly.length === recordFiles.length){
+        try{
+          await saveLockRecord({bookName, files: handlesOnly});
+          toast('已锁定「' + bookName + '」，下次打开可能需要重新授权');
+          return true;
+        }catch(e3){}
+      }
+      lockedBooks.delete(bookName);
+      persistLockedMeta();
+      throw new Error('浏览器缓存空间不足，锁定失败');
+    }
+  }
+
+  async function unlockBook(bookName){
+    const had = lockedBooks.delete(bookName);
+    if(had) persistLockedMeta();
+    await deleteLockRecord(bookName);
+    if(had) toast('已解锁「' + bookName + '」，缓存已清除');
+    return false;
+  }
+
+  function removeLock(bookName){
+    const had = lockedBooks.delete(bookName);
+    if(had) persistLockedMeta();
+    return deleteLockRecord(bookName).then(()=>had);
+  }
+
+  function clearAllLocks(){
+    lockedBooks.clear();
+    persistLockedMeta();
+    importedFileObjects.clear();
+    fileHandles.clear();
+    openLockDB().then(db=>{
+      const tx = db.transaction(LOCK_STORE, 'readwrite');
+      tx.objectStore(LOCK_STORE).clear();
+      tx.oncomplete = ()=>{ try{ db.close(); }catch(e){}; };
+    }).catch(()=>{});
+  }
+
+  async function fileFromHandle(handle){
+    try{
+      if(handle.queryPermission){
+        const state = await handle.queryPermission({mode:'read'});
+        if(state !== 'granted') return null;
+      }
+      return await handle.getFile();
+    }catch(e){
+      return null;
+    }
+  }
+
+  let restoringLocks = false;
+  async function restoreLockedBooks(){
+    if(restoringLocks || !lockedBooks.size) return;
+    restoringLocks = true;
+    const records = await getAllLockRecords();
+    const byName = new Map(records.map(r=>[r.bookName, r]));
+    let failed = 0;
+    let restored = 0;
+
+    for(const meta of [...lockedBooks.values()]){
+      const rec = byName.get(meta.bookName);
+      let importedAny = false;
+      for(const fm of meta.files){
+        let file = null;
+        let handle = null;
+        const rf = rec && Array.isArray(rec.files)
+          ? rec.files.find(x=>x && x.fileName === fm.fileName && x.size === fm.size)
+          : null;
+        if(rf){
+          handle = rf.handle || null;
+          if(rf.blob){
+            try{
+              file = new File([rf.blob], fm.fileName, {
+                type: fm.type || rf.blob.type || '',
+                lastModified: fm.lastModified || Date.now()
+              });
+            }catch(e){ file = rf.blob; }
+          }
+        }
+        if(!file && handle) file = await fileFromHandle(handle);
+        if(!file) continue;
+
+        try{
+          const gotName = await handleImport(file, handle, {restoring:true});
+          if(gotName){
+            importedAny = true;
+            if(gotName !== meta.bookName){
+              const oldName = meta.bookName;
+              const migrated = Object.assign({}, meta, {bookName: gotName});
+              lockedBooks.delete(oldName);
+              lockedBooks.set(gotName, migrated);
+              persistLockedMeta();
+              try{ await saveLockRecord({bookName: gotName, files: rec ? rec.files : []}); }catch(e){}
+              deleteLockRecord(oldName);
+              meta.bookName = gotName;
+            }
+          }
+        }catch(e){
+          console.warn('恢复锁定教材失败：', e);
+        }
+      }
+      if(importedAny) restored++;
+      else failed++;
+    }
+
+    restoringLocks = false;
+    if(failed){
+      toast('有 ' + failed + ' 个锁定教材未能自动恢复，请重新导入', 4500);
+    } else if(restored){
+      toast('已自动恢复 ' + restored + ' 个锁定教材', 2400);
+    }
+    try{ buildChips(); }catch(e){}
+    try{ render(); }catch(e){}
+  }
+
+  window.__kesouLock = {
+    isImported(bookName){
+      const s = bookFiles.get(bookName);
+      return !!(s && s.size);
+    },
+    isLocked(bookName){ return lockedBooks.has(bookName); },
+    lock: lockBook,
+    unlock: unlockBook,
+    toggle(bookName){
+      return lockedBooks.has(bookName) ? unlockBook(bookName) : lockBook(bookName);
+    },
+    removeLock,
+    clearAll: clearAllLocks,
+    restore: restoreLockedBooks
+  };
+
   /* 统一命名：识别教材名，否则用文件名，重名自动加序号 */
   function pickBookName(detectText, file){
     let bookName = detectBookName(detectText, file.name);
@@ -10826,9 +11129,15 @@ function getSubjectOfKey(key){
     // 4) 清空文件记录（这样同一个文件可以重新导入）
     const keys = bookFiles.get(bookName);
     if(keys){
-      keys.forEach(k => importedFiles.delete(k));
+      keys.forEach(k => {
+        importedFiles.delete(k);
+        importedFileObjects.delete(k);
+        fileHandles.delete(k);
+      });
       bookFiles.delete(bookName);
     }
+    // 关闭已锁定的教材时，同时取消锁定并清掉持久缓存
+    await removeLock(bookName);
 
     // 5) 清理状态
     BOOKS = BOOKS.filter(b => b !== bookName);
@@ -10867,7 +11176,7 @@ function getSubjectOfKey(key){
         for(const handle of handles){
           try{
             const file = await handle.getFile();
-            await handleImport(file);
+            await handleImport(file, handle);
           }catch(err){
             if(err && err.name === 'AbortError') return;
             console.warn('读取所选文件失败：', err);
@@ -10907,6 +11216,9 @@ function getSubjectOfKey(key){
       matchIndex = -1;
       importedFiles.clear();
       bookFiles.clear();
+      importedFileObjects.clear();
+      fileHandles.clear();
+      clearAllLocks();
       importCounter = 0;
       pdfPageCount = 0;
       pdfZoom = 1;
@@ -11134,14 +11446,15 @@ document.addEventListener('touchcancel', ()=>{
   const SHEET_EXT = new Set(['xlsx','xls','xlsb','ods']);
   const TEXT_EXT  = new Set(['txt','md','markdown','csv','tsv','json','log','ini','xml','html','htm','srt','vtt','yaml','yml']);
 
-  async function handleImport(file){
+  async function handleImport(file, handle, opts){
+    opts = opts || {};
     const ext = (file.name.split('.').pop() || '').toLowerCase();
     const key = file.name + '::' + (file.size || 0);
 
     if(importedFiles.has(key)){
       fileStatus.textContent = '已导入过：' + file.name;
       setTimeout(updateFileStatus, 1500);   // 1.5 秒后回到"可搜xxx"
-      return;
+      return null;
     }
 
     fileStatus.textContent = '正在读取：' + file.name;
@@ -11177,18 +11490,24 @@ document.addEventListener('touchcancel', ()=>{
         bookName = await renderTxt(file);
       }
 
-      if(bookName) registerBookFile(bookName, key);
+      if(bookName){
+        registerBookFile(bookName, key);
+        importedFileObjects.set(key, file);
+        if(handle) fileHandles.set(key, handle);
+      }
       importedFiles.add(key);
       hideMask();
       render();
 
       updateFileStatus();   // 持久显示
-      if(bookName) toast('已导入「' + bookName + '」', 1800);
+      if(!opts.restoring && bookName) toast('已导入「' + bookName + '」', 1800);
+      return bookName;
     }catch(err){
       console.error(err);
       hideMask();
       fileStatus.textContent = '失败：' + (err.message || '未知错误');
       toast('导入失败：' + (err.message || '未知错误'), 4000);
+      return null;
     }
   }
 
@@ -11908,6 +12227,13 @@ document.addEventListener('touchcancel', ()=>{
     const files = Array.from(e.dataTransfer.files);
     for(const f of files) await handleImport(f);
   });
+
+  /* 页面加载后自动恢复已锁定的教材（优先读浏览器缓存，其次读原路径句柄） */
+  if(document.readyState === 'complete'){
+    setTimeout(restoreLockedBooks, 250);
+  } else {
+    window.addEventListener('load', ()=>setTimeout(restoreLockedBooks, 250), {once:true});
+  }
 })();
 
 
