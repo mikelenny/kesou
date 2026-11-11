@@ -5,7 +5,7 @@
  *   - 页面导航：网络优先，断网时用缓存
  *   - CDN 兜底资源：stale-while-revalidate（首次联网后即可离线）
  */
-const VERSION = 'kesou-v1.1.4';
+const VERSION = 'kesou-v1.1.6';
 const CORE_CACHE = 'kesou-core-' + VERSION;
 const RUNTIME_CACHE = 'kesou-runtime-' + VERSION;
 

@@ -8609,7 +8609,7 @@ function makeCondInput(val, idx){
   inp.type = 'search';
   inp.className = 'cond-input';
   inp.placeholder = '关键词';
-  inp.title = '输入完成后按 Enter 搜索 / 跳到下一个；↑ 上一个；← → 上一页 / 下一页\n普通搜索严格匹配独立化学式：cl 只匹配 Cl / Cl⁻，不匹配 NaCl、CaCl₂；搜 Cl₂ 请输入 cl2\n通配符：* = 1 个或多个字符（不含 0 个）；? = 恰好 1 个字符（不含 0 个）\n  *cl = 前面至少 1 个字符 + cl，右侧须为空白/中文/符号（NaCl、HCl 命中；行首单独的 Cl 不命中）\n  cl* = cl + 后面至少 1 个字符，左侧须为空白/中文/符号（Cl₂、Cl⁻ 命中；行尾单独的 Cl 不命中）\n  *cl* = 两侧都至少有 1 个字符的任意包含（CaCl₂、HClO 也命中）\n  *cl2 不会命中单独的 cl2；?cl2 需要 cl2 前面恰好 1 个字符';
+  inp.title = '输入完成后按 Enter 搜索 / 跳到下一个；↑ 上一个；← → 上一页 / 下一页\n普通搜索严格匹配独立化学式：cl 只匹配 Cl / Cl⁻，不匹配 NaCl、CaCl₂；搜 Cl₂ 请输入 cl2\n通配符：* = 1 个或多个字符（不含 0 个）；? = 恰好 1 个字符（不含 0 个）\n  *cl = 前面至少 1 个字符 + cl，右侧须为空白/中文/符号（NaCl、HCl 命中；行首单独的 Cl 不命中）\n  cl* = cl + 后面至少 1 个字符，左侧须为空白/中文/符号（Cl₂、Cl⁻ 命中；行尾单独的 Cl 不命中）\n  *cl* = 两侧都至少有 1 个字符的任意包含（CaCl₂、HClO 也命中）\n  ?cl = 恰好 1 个字符 + cl（HCl、KCl 命中；CHCl、NaCl 是 2 个字符，不命中）\n  *cl2 不会命中单独的 cl2；?cl2 需要 cl2 前面恰好 1 个字符';
   inp.value = val || '';
 
   const inputWrap = document.createElement('span');
@@ -8985,12 +8985,34 @@ function textHasKeyword(text, needle, strict, rawText, normMap){
   }
   return false;
 }
-/* 通配符 * / ? 都不含 0 个：模式以通配符开头时，字面片段前必须有字符；
-   以通配符结尾时，字面片段后必须有字符。 */
-function wildcardNeedCharsOk(v, start, end, textLen){
+/* 通配符长度语义：* = 1 个或多个字符，? = 恰好 1 个字符（都不含 0 个）。
+   通配符必须从一个“边界”开始/结束，因此：
+   - *cl  : cl 前面至少有 1 个字符；
+   - ?cl  : cl 前面恰好 1 个字符，再往前必须是边界（HCl 命中，CHCl 不命中）；
+   - cl*  : cl 后面至少有 1 个字符；
+   - cl?  : cl 后面恰好 1 个字符，再往后必须是边界。
+   v.leftRun / v.rightRun 为紧邻字面片段的通配符串（如 "*"、"?"、"*?"）。 */
+function wildcardOccurrenceOk(v, text, start, end){
   if(!v) return true;
-  if(v.needLeft && start <= 0) return false;
-  if(v.needRight && end >= textLen) return false;
+  const L = text.length;
+  const leftRun = v.leftRun || '';
+  if(leftRun){
+    const k = leftRun.length;              // 每个 * / ? 都至少占 1 个字符
+    if(start < k) return false;
+    if(leftRun.indexOf('*') < 0){          // 纯 ?：必须从边界开始
+      const b = start - k;
+      if(!formulaBoundaryOkRawMode(text, b, b + 1, 'left')) return false;
+    }
+  }
+  const rightRun = v.rightRun || '';
+  if(rightRun){
+    const k = rightRun.length;
+    if(end + k > L) return false;
+    if(rightRun.indexOf('*') < 0){         // 纯 ?：必须在边界结束
+      const b = end + k;
+      if(!formulaBoundaryOkRawMode(text, b - 1, b, 'right')) return false;
+    }
+  }
   return true;
 }
 function collectKeywordMatches(text, needle, strict, group, out, rawText, normMap, boundary, variant){
@@ -8999,14 +9021,14 @@ function collectKeywordMatches(text, needle, strict, group, out, rawText, normMa
   let pos = 0;
   while((pos = text.indexOf(needle, pos)) !== -1){
     const end = pos + needle.length;
-    if(formulaBoundaryOkMappedMode(text, needle, pos, rawText, normMap, mode) &&
-       wildcardNeedCharsOk(variant, pos, end, text.length)){
+    if(formulaBoundaryOkMappedMode(text, needle, pos, rawText, normMap, mode)){
       out.push({
         start: pos,
         end,
         group,
-        needLeft: !!(variant && variant.needLeft),
-        needRight: !!(variant && variant.needRight),
+        // 紧邻字面片段的通配符串，用于判断 * = 1+ / ? = 恰好 1
+        leftRun: (variant && variant.leftRun) || '',
+        rightRun: (variant && variant.rightRun) || '',
       });
     }
     pos += 1;
@@ -9023,7 +9045,7 @@ function countKeywordHits(text, variants, rawText, normMap){
     let pos = 0;
     while((pos = scratch.indexOf(needle, pos)) !== -1){
       if(formulaBoundaryOkMappedMode(scratch, needle, pos, rawText, normMap, mode) &&
-         wildcardNeedCharsOk(v, pos, pos + needle.length, text.length)){
+         wildcardOccurrenceOk(v, text, pos, pos + needle.length)){
         hits++;
         scratch = scratch.slice(0, pos) + '\u0000'.repeat(needle.length) + scratch.slice(pos + needle.length);
         pos += needle.length;
@@ -9107,7 +9129,7 @@ function wildcardMatches(rawText, pattern){
   if(!gm.wildcard){
     return normalizeWildcardText(rawText).includes(normalizeWildcardText(pattern));
   }
-  return wildcardFindMatches(rawText, gm, 1).length > 0;
+  return wildcardOccurrences(rawText, gm).length > 0;
 }
 /* 通配符的方向：开头是字面字符 → 左侧要边界；结尾是字面字符 → 右侧要边界。
    *cl  → 只要求右边界（任意前缀 + cl + 右侧空白/中文/符号）
@@ -9121,16 +9143,21 @@ function wildcardDirectionFlags(pattern){
     rightStrict: norm.length > 0 && !/[*?]$/.test(norm)
   };
 }
-/* 在原文里找通配符匹配，带方向边界。
+/* 在原文里找通配符匹配，带方向边界和 * / ? 长度规则。
    返回的 start/end 位于“通配符归一化文本”中（下标/上标已转普通字符）。 */
-function wildcardFindMatches(rawText, gm, limit){
+function wildcardOccurrences(rawText, gm){
   const src = String(rawText == null ? '' : rawText);
   const w = buildWildcardNormWithMap(src);
   const norm = w.norm;
   if(!norm) return [];
-  const re = (gm && gm.countRegex)
-    ? gm.countRegex
-    : wildcardToRegex(gm.pattern, {global:true, nonGreedy:true});
+  if(!gm || !gm.wildcard) return [];
+  // 只有通配符、没有字面字符：视为“匹配全部”
+  if(gm.empty) return [{ start: 0, end: norm.length }];
+
+  const re = gm.countRegex || wildcardToRegex(gm.pattern, { global:true, nonGreedy:true });
+  const leftRun = gm.leftRun || '';
+  const rightRun = gm.rightRun || '';
+  const occ = { leftRun, rightRun };
   re.lastIndex = 0;
   const out = [];
   let m, guard = 0;
@@ -9138,14 +9165,22 @@ function wildcardFindMatches(rawText, gm, limit){
     if(m[0].length === 0){ re.lastIndex++; continue; }
     const start = m.index;
     const end = start + m[0].length;
+    // 字面片段的起止：左侧通配符串（纯 ? 恰好 k 个；含 * 时至少 k 个）
+    // 正则已经保证通配符至少吃掉对应数量的字符，这里用于边界判断。
+    const literalStart = start + leftRun.length;
+    const literalEnd = end - rightRun.length;
+    if(literalStart > literalEnd){
+      re.lastIndex = start + 1;
+      continue;
+    }
     const startRaw = w.normMap[start];
     const endRaw = w.normMap[end - 1] + 1;
     let ok = true;
     if(gm.leftStrict && !formulaBoundaryOkRawMode(src, startRaw, endRaw, 'left')) ok = false;
     if(ok && gm.rightStrict && !formulaBoundaryOkRawMode(src, startRaw, endRaw, 'right')) ok = false;
+    if(ok && !wildcardOccurrenceOk(occ, norm, literalStart, literalEnd)) ok = false;
     if(ok){
-      out.push({start, end});
-      if(limit && out.length >= limit) break;
+      out.push({ start, end });
     } else {
       // 这个位置不满足边界，从下一个字符继续找，避免漏掉重叠的有效匹配
       re.lastIndex = start + 1;
@@ -9181,8 +9216,8 @@ function addSupVariants(set){
 }
 /* 通配符模式中字面片段的高亮变体（下标/上标/电荷都覆盖）。
    同时给每个片段标上方向边界：开头片段看左侧，结尾片段看右侧。
-   另外标记 needLeft/needRight：模式以通配符开头/结尾时，
-   字面片段前面/后面必须至少有一个字符（* 为 1+、? 为 1，都不含 0）。 */
+   另外记录紧邻片段的通配符串 leftRun / rightRun（如 "*"、"?"、"*?"），
+   用于执行 * = 1+、? = 恰好 1 个字符的规则。 */
 function wildcardHighlightVariants(pattern){
   const out = [];
   const seen = new Set();
@@ -9190,13 +9225,15 @@ function wildcardHighlightVariants(pattern){
   const segments = wildcardLiteralSegments(pattern);
   const startsWithLiteral = normPattern.length > 0 && !/^[*?]/.test(normPattern);
   const endsWithLiteral = normPattern.length > 0 && !/[*?]$/.test(normPattern);
+  const leftRun = (normPattern.match(/^[*?]+/) || [''])[0];
+  const rightRun = (normPattern.match(/[*?]+$/) || [''])[0];
 
   segments.forEach((seg, i)=>{
     const boundaryLeft = startsWithLiteral && i === 0;
     const boundaryRight = endsWithLiteral && i === segments.length - 1;
     const boundary = boundaryLeft && boundaryRight ? 'both' : boundaryLeft ? 'left' : boundaryRight ? 'right' : 'none';
-    const needLeft = !startsWithLiteral && i === 0;
-    const needRight = !endsWithLiteral && i === segments.length - 1;
+    const vLeftRun = i === 0 ? leftRun : '';
+    const vRightRun = i === segments.length - 1 ? rightRun : '';
 
     const set = new Set([seg]);
     addSubVariants(set);
@@ -9205,7 +9242,7 @@ function wildcardHighlightVariants(pattern){
     set.forEach(v=>{
       if(!v || seen.has(v)) return;
       seen.add(v);
-      out.push({ word: v, strict: boundary !== 'none', boundary, needLeft, needRight });
+      out.push({ word: v, strict: boundary !== 'none', boundary, leftRun: vLeftRun, rightRun: vRightRun });
     });
   });
   return out;
@@ -9218,12 +9255,15 @@ function buildGroupMatcher(condition){
     const segments = wildcardLiteralSegments(pattern);
     const empty = segments.length === 0;
     const dir = wildcardDirectionFlags(pattern);
+    const normPattern = normalizeWildcardText(pattern);
     return {
       wildcard: true,
       pattern,
       empty,
       leftStrict: dir.leftStrict,
       rightStrict: dir.rightStrict,
+      leftRun: (normPattern.match(/^[*?]+/) || [''])[0],
+      rightRun: (normPattern.match(/[*?]+$/) || [''])[0],
       regex: empty ? null : wildcardToRegex(pattern),
       countRegex: empty ? null : wildcardToRegex(pattern, { global:true, nonGreedy:true }),
       variants: wildcardHighlightVariants(pattern)
@@ -9253,7 +9293,7 @@ function groupMatchesText(gm, normText, rawText, normMap){
   if(!gm || gm.empty) return false;
   if(gm.wildcard){
     if(!gm.regex) return false;
-    return wildcardFindMatches(rawText != null ? rawText : normText, gm, 1).length > 0;
+    return wildcardOccurrences(rawText != null ? rawText : normText, gm).length > 0;
   }
   return gm.variants.some(v => textHasKeyword(normText, v.word, v.strict, rawText, normMap));
 }
@@ -9264,7 +9304,7 @@ function groupCountHits(gm, normText, rawText, normMap){
     const normPattern = normalizeWildcardText(normalizeWildcardPattern(gm.pattern));
     // 只有通配符、没有字面字符：视为“匹配全部”，计 1 处
     if(!normPattern || /^[*?]+$/.test(normPattern)) return 1;
-    return wildcardFindMatches(rawText != null ? rawText : normText, gm).length;
+    return wildcardOccurrences(rawText != null ? rawText : normText, gm).length;
   }
   return countKeywordHits(normText, gm.variants, rawText, normMap);
 }
@@ -9390,10 +9430,13 @@ function highlightText(text, entries){
     const strict = (typeof e.strict === 'boolean')
       ? e.strict
       : variantIsStrict(needle, needle);
+    // 通配符的方向边界（left/right/both）与 * / ? 的“至少 1 个字符”要求
+    const mode = e.boundary || (strict ? 'both' : 'none');
     let pos = 0;
     while((pos = lower.indexOf(needle, pos)) !== -1){
       const end = pos + needle.length;
-      if((!strict || formulaBoundaryOk(lower, needle, pos)) &&
+      if(formulaBoundaryOkRawMode(lower, pos, end, mode) &&
+         wildcardOccurrenceOk(e, lower, pos, end) &&
          !ranges.some(r => pos < r.end && end > r.start)){
         ranges.push({ start: pos, end, colorIndex: e.colorIndex || 0 });
       }
@@ -9495,7 +9538,15 @@ function getHighlightEntries(){
       if(hasWildcard(c)){
         if(!negated){
           buildGroupMatcher(c).variants.forEach(v=>{
-            entries.push({ word: v.word, colorIndex, strict: false });
+            // ★ 保留方向边界与 * / ? 的长度要求，否则手册里 *cl 会把 PbCl₂ 的 Cl 也高亮
+            entries.push({
+              word: v.word,
+              colorIndex,
+              strict: !!v.strict,
+              boundary: v.boundary || 'both',
+              leftRun: v.leftRun || '',
+              rightRun: v.rightRun || '',
+            });
           });
         }
         colorIndex++;
@@ -10425,10 +10476,15 @@ function processPageForSearch(pageEl, groupMatchers){
     });
   });
 
+  // ★ 通配符 * / ?：PDF 按“页”判断（页首/页尾没有字符）
+  const wildcardFilteredMatches = allMatches.filter(m =>
+    wildcardOccurrenceOk(m, fullNorm, m.start, m.end)
+  );
+
   // 去重：同一位置可能被 cl2 / cl₂ 等多个变体命中
   const seen = new Set();
   const uniqueMatches = [];
-  allMatches.forEach(m=>{
+  wildcardFilteredMatches.forEach(m=>{
     const key = m.start + ':' + m.end + ':' + m.group;
     if(seen.has(key)) return;
     seen.add(key);
@@ -10564,17 +10620,16 @@ function processTxtDocForSearch(txtDoc, groupMatchers){
 
   // ★ 通配符 * / ? 都不含 0 个：TXT 按“行”判断。
   //   行首的 cl2 前面没有字符 → *cl2 不匹配；行尾的 cl 后面没有字符 → cl* 不匹配。
+  //   ? 还要求“恰好 1 个字符”且该字符前/后是边界（?cl 命中 HCl，不命中 CHCl）。
   //   这样与 renderAll 里按行的计数保持一致。
   const lineFilteredMatches = allMatches.filter(m=>{
-    if(!m.needLeft && !m.needRight) return true;
+    if(!m.leftRun && !m.rightRun) return true;
     let li = 0;
     while(li + 1 < lineData.length && m.start >= lineData[li + 1].startInFull) li++;
     const d = lineData[li];
     const localStart = m.start - d.startInFull;
     const localEnd = m.end - d.startInFull;
-    if(m.needLeft && localStart <= 0) return false;
-    if(m.needRight && localEnd >= d.norm.length) return false;
-    return true;
+    return wildcardOccurrenceOk(m, d.norm, localStart, localEnd);
   });
 
   // 去重：同一位置可能被 cl2 / cl₂ 等多个变体命中
