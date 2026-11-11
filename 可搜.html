@@ -81,6 +81,7 @@ body{font-family:var(--ff,-apple-system,BlinkMacSystemFont,"PingFang SC","Helvet
 .input-row{display:flex;align-items:center;gap:5px;padding:8px 10px 4px;flex-wrap:wrap}
 .search-area{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
 .cond-input-wrap{position:relative;display:inline-flex;align-items:center;flex-shrink:0}
+.cond-input-wrap.negated .cond-input{background:rgba(239,68,68,.30);box-shadow:inset 0 0 0 1px rgba(255,255,255,.45)}
 .cond-input{width:6em;min-width:5em;max-width:6em;border:none;background:rgba(255,255,255,.22);border-radius:8px;padding:6px 26px 6px 9px;color:#fff;font-size:14px;outline:none;font-family:inherit;-webkit-appearance:none;appearance:none}
 .cond-input::placeholder{color:rgba(255,255,255,.6);font-size:13px}
 .cond-input::-webkit-search-cancel-button{display:none}
@@ -7934,6 +7935,19 @@ if('onscrollend' in window){
     if(smoothScrollTimer) clearTimeout(smoothScrollTimer);
   });
 }
+/* 用户主动滚动/触摸/按键时，立即视为“手动浏览”，
+   这样下一页/上一页会从当前可见页重新计算，而不是沿用旧的匹配页。 */
+function markUserScrolled(){
+  isSmoothScrolling = false;
+  if(smoothScrollTimer){ clearTimeout(smoothScrollTimer); smoothScrollTimer = null; }
+}
+window.addEventListener('wheel', markUserScrolled, {passive:true});
+window.addEventListener('touchstart', markUserScrolled, {passive:true});
+window.addEventListener('touchmove', markUserScrolled, {passive:true});
+window.addEventListener('pointerdown', markUserScrolled, {passive:true});
+window.addEventListener('keydown', e=>{
+  if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(e.key)) markUserScrolled();
+}, {passive:true});
 let matchCards = [];            // 当前可导航的元素（卡片 或 PDF span）
 let matchIndex = -1;
 let showEquations = false;
@@ -7944,6 +7958,36 @@ let pdfPageCount = 0;
 let pdfList = null;             // 独立容器，避免被 render() 清空
 let pdfZoom = 1;
 const pdfStore = new Map();       // pdfId → pdf 对象
+/* 每个 PDF 的原始文件：pdf 对象被释放后，按需重新加载，避免大文件切回时空白 */
+const pdfSourceBlobs = new Map(); // pdfId → File/Blob
+const pdfLoadPromises = new Map();// pdfId → Promise<pdf>
+async function ensurePdfForId(pdfId){
+  const existing = pdfStore.get(pdfId);
+  if(existing) return existing;
+  const src = pdfSourceBlobs.get(pdfId);
+  if(!src) return null;
+  if(pdfLoadPromises.has(pdfId)) return pdfLoadPromises.get(pdfId);
+  const p = (async()=>{
+    await ensurePdfJs();
+    if(typeof pdfjsLib === 'undefined') return null;
+    const data = (src instanceof Blob) ? await src.arrayBuffer() : src;
+    const pdf = await pdfjsLib.getDocument({
+      data,
+      cMapUrl: pdfCMapUrl(),
+      cMapPacked: true,
+      standardFontDataUrl: pdfStandardFontsUrl()
+    }).promise;
+    pdfStore.set(pdfId, pdf);
+    return pdf;
+  })().catch(err=>{
+    console.warn('按需加载 PDF 失败：', err);
+    return null;
+  }).finally(()=>{
+    pdfLoadPromises.delete(pdfId);
+  });
+  pdfLoadPromises.set(pdfId, p);
+  return p;
+}
 let pdfLazyObserver = null;       // 全局单例懒渲染 observer
 /* 设备性能检测：手机不降画质；只有极低内存才关高清升级 */
 const DEVICE = (() => {
@@ -7983,6 +8027,8 @@ const searchArea = document.getElementById('searchArea');
 const chipsEl = document.getElementById('chips');
 const countEl = document.getElementById('count');
 const hintEl = document.getElementById('hint');
+/* 搜索状态下唯一保留的提示：普通写法 cl2 也匹配下标写法 cl₂，通配符可匹配式内片段 */
+const SEARCH_HINT = 'cl2=cl₂ | *cl2=CaCl₂';
 
 /* 空闲任务队列：不阻塞交互 */
 const idleQueue = [];
@@ -8045,7 +8091,7 @@ function scheduleSharpUpgrade(div){
     showPageLoading(div);
 
     try{
-      const pdf = pdfStore.get(div.dataset.pdfId);
+      const pdf = await ensurePdfForId(div.dataset.pdfId);
       if(!pdf) return;
       const pageNum = parseInt(div.dataset.pageNum, 10);
       const scale = parseFloat(div.dataset.scale);
@@ -8087,7 +8133,7 @@ function ensureLazyObserver(){
       const div = entry.target;
       if(div.dataset.rendered === '1' || div.dataset.rendering === '1') continue;
       div.dataset.rendering = '1';
-      const pdf = pdfStore.get(div.dataset.pdfId);
+      const pdf = await ensurePdfForId(div.dataset.pdfId);
       if(!pdf){ div.dataset.rendering = ''; continue; }
       const p = parseInt(div.dataset.pageNum, 10);
       const scale = parseFloat(div.dataset.scale);
@@ -8148,12 +8194,12 @@ function preRenderAdjacent(div, delta){
   if(!next) return;
   if(next.dataset.rendered === '1' || next.dataset.rendering === '1') return;
   next.dataset.rendering = '1';
-  const pdf = pdfStore.get(pdfId);
-  if(!pdf){ next.dataset.rendering = ''; return; }
   const scale = parseFloat(next.dataset.scale);
   // 使用 setTimeout(0) 让主线程先完成当前工作
   setTimeout(async ()=>{
     try{
+        const pdf = await ensurePdfForId(pdfId);
+        if(!pdf){ next.dataset.rendering = ''; return; }
         const page = await pdf.getPage(num);
         const viewport = page.getViewport({scale});
         const canvas = next.querySelector('canvas');
@@ -8189,8 +8235,6 @@ function renderVisiblePages(){
     if(r.top < vh + DEVICE.fallbackMargin && r.bottom > -DEVICE.fallbackMargin){
       p.dataset.rendering = '1';
       p.dataset.renderedVisible = '1';   // ★ 记录：渲染时容器是可见的
-      const pdf = pdfStore.get(p.dataset.pdfId);
-      if(!pdf){ p.dataset.rendering = ''; return; }
       const num = parseInt(p.dataset.pageNum, 10);
       const scale = parseFloat(p.dataset.scale);
 
@@ -8198,6 +8242,8 @@ function renderVisiblePages(){
 
       setTimeout(async ()=>{
         try{
+          const pdf = await ensurePdfForId(p.dataset.pdfId);
+          if(!pdf){ p.dataset.rendering = ''; hidePageLoading(p); return; }
           const page = await pdf.getPage(num);
           const viewport = page.getViewport({scale});
           const canvas = p.querySelector('canvas');
@@ -8563,7 +8609,7 @@ function makeCondInput(val, idx){
   inp.type = 'search';
   inp.className = 'cond-input';
   inp.placeholder = '关键词';
-  inp.title = '输入完成后按 Enter 搜索 / 跳到下一个；↑ 上一个；← → 上一页 / 下一页';
+  inp.title = '输入完成后按 Enter 搜索 / 跳到下一个；↑ 上一个；← → 上一页 / 下一页\n普通搜索严格匹配独立化学式：cl 只匹配 Cl / Cl⁻，不匹配 NaCl、CaCl₂；搜 Cl₂ 请输入 cl2\n通配符：* = 1 个或多个字符（不含 0 个）；? = 恰好 1 个字符（不含 0 个）\n  *cl = 前面至少 1 个字符 + cl，右侧须为空白/中文/符号（NaCl、HCl 命中；行首单独的 Cl 不命中）\n  cl* = cl + 后面至少 1 个字符，左侧须为空白/中文/符号（Cl₂、Cl⁻ 命中；行尾单独的 Cl 不命中）\n  *cl* = 两侧都至少有 1 个字符的任意包含（CaCl₂、HClO 也命中）\n  *cl2 不会命中单独的 cl2；?cl2 需要 cl2 前面恰好 1 个字符';
   inp.value = val || '';
 
   const inputWrap = document.createElement('span');
@@ -8582,7 +8628,7 @@ function makeCondInput(val, idx){
     inp.value = '';
     draftConditions[idx] = '';
     inputWrap.classList.remove('has-value');
-    if(hintEl) hintEl.textContent = '按 Enter 开始搜索';
+    if(hintEl) hintEl.textContent = SEARCH_HINT;
     if(draftHasChanges()) commitDraft();
     updateNavBtns();
     inp.focus();
@@ -8593,7 +8639,7 @@ function makeCondInput(val, idx){
   inp.oninput = ()=>{
     draftConditions[idx] = inp.value;
     inputWrap.classList.toggle('has-value', !!inp.value);
-    if(hintEl) hintEl.textContent = '按 Enter 开始搜索';
+    if(hintEl) hintEl.textContent = SEARCH_HINT;
     // 关键词被清空时，顺手清掉旧高亮（只重绘，不跳转）
     if(inp.value.trim() === '' && conditions.some(c => (c || '').trim() !== '')){
       commitDraft();
@@ -8602,14 +8648,22 @@ function makeCondInput(val, idx){
   };
 
   if(idx > 0){
+    const opVal = draftCondLogic[idx-1] || 'and';
     const op = document.createElement('button');
-    op.className = 'op-btn ' + (draftCondLogic[idx-1]==='or'?'op-or':'op-and');
-    op.textContent = draftCondLogic[idx-1]==='or'?'或':'且';
+    op.className = 'op-btn ' + (opVal === 'or' ? 'op-or' : opVal === 'not' ? 'op-not' : 'op-and');
+    op.textContent = opVal === 'or' ? '或' : opVal === 'not' ? '非' : '且';
+    op.title = '点击切换：且 → 或 → 非（非 = 排除后面的关键词）';
     op.onclick = ()=>{
-      draftCondLogic[idx-1] = draftCondLogic[idx-1]==='or'?'and':'or';
+      const cur = draftCondLogic[idx-1] || 'and';
+      draftCondLogic[idx-1] = cur === 'and' ? 'or' : cur === 'or' ? 'not' : 'and';
       renderCondArea();
     };
     wrap.appendChild(op);
+  }
+
+  // 被“非”排除的条件用浅红底提示
+  if(idx > 0 && draftCondLogic[idx-1] === 'not'){
+    inputWrap.classList.add('negated');
   }
 
   wrap.appendChild(inputWrap);
@@ -8729,6 +8783,9 @@ function addChargeVariants(set){
     if(sup !== kw) extra.push(sup);
     const plain = fromSuperCharge(kw);
     if(plain !== kw) extra.push(plain);
+    // 裸电荷符号：cl- → cl⁻、na+ → na⁺（toSuperCharge 要求符号前有数字）
+    const m = String(kw).match(/^(.*[A-Za-z)\]])([+\-])$/);
+    if(m) extra.push(m[1] + (m[2] === '+' ? '⁺' : '⁻'));
   });
   extra.forEach(v => set.add(v));
 }
@@ -8770,6 +8827,9 @@ function expandKeyword(kw){
   const base = normalizeWidth(kw).toLowerCase();
   const set = new Set([kw, base]);
 
+  /* 严格模式：普通 cl 只匹配独立的 cl / Cl⁻，不再自动扩展成 Cl₂。
+     要搜 Cl₂ 请直接输入 cl2。 */
+
   /* —— 同义词组扩展 —— */
   const syns = SYNONYM_MAP.get(base);
   if(syns){
@@ -8797,6 +8857,418 @@ function expandKeyword(kw){
 
   return [...set];
 }
+
+/* ==================== 化学式边界匹配 ==================== */
+/* 把下标/上标还原成普通数字，便于判断“这是不是化学式” */
+const SUB_TO_DIGIT = {'₀':'0','₁':'1','₂':'2','₃':'3','₄':'4','₅':'5','₆':'6','₇':'7','₈':'8','₉':'9'};
+const SUP_TO_PLAIN = {'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','⁺':'+','⁻':'-'};
+function formulaPlain(s){
+  let out = '';
+  for(const ch of String(s)){
+    if(SUB_TO_DIGIT[ch]) out += SUB_TO_DIGIT[ch];
+    else if(SUP_TO_PLAIN[ch]) out += SUP_TO_PLAIN[ch];
+    else out += ch;
+  }
+  return out;
+}
+function isAsciiFormulaText(s){
+  return /^[a-z0-9()\[\]+\-·.]+$/.test(s);
+}
+/* 元素符号表（小写）：用于判断 1~2 个字母是否应按“完整化学式”匹配。
+   常见英文单词（in、he、no、as…）虽然也是元素符号，但保持宽松，避免误伤英文正文。 */
+const ELEMENT_SYMBOLS = new Set((
+  'h he li be b c n o f ne na mg al si p s cl ar k ca sc ti v cr mn fe co ni cu zn ' +
+  'ga ge as se br kr rb sr y zr nb mo tc ru rh pd ag cd in sn sb te i xe cs ba la ce pr nd ' +
+  'pm sm eu gd tb dy ho er tm yb lu hf ta w re os ir pt au hg tl pb bi po at rn fr ra ac th ' +
+  'pa u np pu am cm bk cf es fm md no lr rf db sg bh hs mt ds rg cn nh fl mc lv ts og'
+).split(/\s+/));
+const COMMON_EN_WORDS = new Set([
+  'a','i','an','am','as','at','be','by','do','go','he','hi','if','in','is','it',
+  'me','my','no','of','ok','on','or','so','to','up','us','we','yo'
+]);
+/* 判断某个扩展变体是否应当按“完整化学式”做边界匹配。
+   orig 是用户输入的原始关键词，用来区分 HCl 与 sin 这类全小写英文。 */
+function variantIsStrict(variant, orig){
+  const v = formulaPlain(normalizeWidth(variant)).toLowerCase().trim();
+  if(!v || !/[a-z]/.test(v) || !isAsciiFormulaText(v)) return false;
+
+  // 含数字、括号、电荷 → 基本可以确定是化学式
+  if(/[0-9()\[\]+\-]/.test(v)) return true;
+
+  // 单个或两个字母：若是元素符号，按“独立元素符号”匹配。
+  // 例如 cl 不再匹配 NaCl 里的 cl；要匹配式内片段请用 *cl*。
+  if(/^[a-z]{1,2}$/.test(v)){
+    return ELEMENT_SYMBOLS.has(v) && !COMMON_EN_WORDS.has(v);
+  }
+
+  const o = String(orig || '').trim();
+  // 中文关键词扩展出的 ASCII 化学式（盐酸 → HCl）按完整式匹配
+  if(/[\u4e00-\u9fff]/.test(o) && isAsciiFormulaText(v)) return true;
+  // 用户直接输入带大写字母的化学式（HCl、NaCl、NaOH）按完整式匹配
+  if(/[A-Z]/.test(o) && /^[A-Za-z0-9()\[\]+\-·.]+$/.test(o)) return true;
+
+  // 其余全小写英文/数学词（sin、cos、log）不做严格边界，避免误伤
+  return false;
+}
+/* 判断 rawText[start,end) 是否是完整化学式，而不是更大式子的一部分。
+   使用保留空格的原文做边界判断，避免 "Cl2 and" 被去空格后误判成 "Cl2and"。
+   mode: 'both'（默认）/ 'left' / 'right' / 'none'
+   —— 通配符有方向时，只用检查对应一侧。 */
+function formulaBoundaryOkRawMode(text, start, end, mode){
+  mode = mode || 'both';
+  if(mode === 'none') return true;
+  const checkLeft = (mode === 'both' || mode === 'left');
+  const checkRight = (mode === 'both' || mode === 'right');
+  const digitRe = /[0-9₀-₉⁰-⁹]/;
+
+  // 左边界：空白/中文/标点/符号都算边界；ASCII 字母、数字下标、右括号不算
+  if(checkLeft && start > 0){
+    const prev = text[start - 1];
+    if(prev){
+      if(/[A-Za-z]/.test(prev)) return false;       // 元素符号的后续字母，如 CaCl₂ 里的 Cl₂
+      if(digitRe.test(prev)){
+        let j = start - 1;
+        while(j >= 0 && digitRe.test(text[j])) j--;
+        const before = j >= 0 ? text[j] : '';
+        // 数字紧跟在字母/右括号后 → 是下标，如 H₂O₂ 里的 O₂
+        if(before && /[A-Za-z0-9₀-₉⁰-⁹)\]]/.test(before)) return false;
+      }
+      if(/[)\]]/.test(prev)) return false;
+    }
+  }
+
+  // 右边界：空白/中文/标点/符号都算边界；ASCII 字母、数字下标、左括号不算
+  if(checkRight && end < text.length){
+    const next = text[end];
+    if(next){
+      if(/[A-Za-z0-9₀-₉⁰-⁹]/.test(next)) return false;   // 后面还有元素/下标，如 Cl₂O、H₂O₂
+      if(/[(\[]/.test(next)){
+        // 允许 Cl₂(g)、CaCl₂(aq) 这类状态符号
+        if(!(next === '(' && /^\((?:g|l|s|aq)\)/i.test(text.slice(end, end + 6)))) return false;
+      }
+    }
+  }
+  return true;
+}
+function formulaBoundaryOkRaw(text, start, end){
+  return formulaBoundaryOkRawMode(text, start, end, 'both');
+}
+function formulaBoundaryOk(text, needle, pos){
+  return formulaBoundaryOkRaw(text, pos, pos + needle.length);
+}
+/* 归一化文本中的位置 → 原文位置（保留空格）后做边界判断 */
+function formulaBoundaryOkMappedMode(text, needle, pos, rawText, normMap, mode){
+  mode = mode || 'both';
+  if(mode === 'none') return true;
+  if(!rawText || !normMap || pos >= normMap.length) {
+    // 没有原文映射时，直接在归一化文本上做单侧判断
+    return formulaBoundaryOkRawMode(text, pos, pos + needle.length, mode);
+  }
+  const startRaw = normMap[pos];
+  const endNorm = pos + needle.length - 1;
+  if(endNorm >= normMap.length) {
+    return formulaBoundaryOkRawMode(text, pos, pos + needle.length, mode);
+  }
+  const endRaw = normMap[endNorm] + 1;
+  return formulaBoundaryOkRawMode(rawText, startRaw, endRaw, mode);
+}
+function formulaBoundaryOkMapped(text, needle, pos, rawText, normMap){
+  return formulaBoundaryOkMappedMode(text, needle, pos, rawText, normMap, 'both');
+}
+function textHasKeyword(text, needle, strict, rawText, normMap){
+  if(!text || !needle) return false;
+  if(!strict) return text.includes(needle);
+  let pos = 0;
+  while((pos = text.indexOf(needle, pos)) !== -1){
+    if(formulaBoundaryOkMapped(text, needle, pos, rawText, normMap)) return true;
+    pos += 1;
+  }
+  return false;
+}
+/* 通配符 * / ? 都不含 0 个：模式以通配符开头时，字面片段前必须有字符；
+   以通配符结尾时，字面片段后必须有字符。 */
+function wildcardNeedCharsOk(v, start, end, textLen){
+  if(!v) return true;
+  if(v.needLeft && start <= 0) return false;
+  if(v.needRight && end >= textLen) return false;
+  return true;
+}
+function collectKeywordMatches(text, needle, strict, group, out, rawText, normMap, boundary, variant){
+  if(!text || !needle) return;
+  const mode = boundary || (strict ? 'both' : 'none');
+  let pos = 0;
+  while((pos = text.indexOf(needle, pos)) !== -1){
+    const end = pos + needle.length;
+    if(formulaBoundaryOkMappedMode(text, needle, pos, rawText, normMap, mode) &&
+       wildcardNeedCharsOk(variant, pos, end, text.length)){
+      out.push({
+        start: pos,
+        end,
+        group,
+        needLeft: !!(variant && variant.needLeft),
+        needRight: !!(variant && variant.needRight),
+      });
+    }
+    pos += 1;
+  }
+}
+function countKeywordHits(text, variants, rawText, normMap){
+  if(!text || !variants || !variants.length) return 0;
+  let scratch = text;
+  let hits = 0;
+  for(const v of variants){
+    if(!v || !v.word) continue;
+    const needle = v.word;
+    const mode = v.boundary || (v.strict ? 'both' : 'none');
+    let pos = 0;
+    while((pos = scratch.indexOf(needle, pos)) !== -1){
+      if(formulaBoundaryOkMappedMode(scratch, needle, pos, rawText, normMap, mode) &&
+         wildcardNeedCharsOk(v, pos, pos + needle.length, text.length)){
+        hits++;
+        scratch = scratch.slice(0, pos) + '\u0000'.repeat(needle.length) + scratch.slice(pos + needle.length);
+        pos += needle.length;
+      } else {
+        pos += 1;
+      }
+    }
+  }
+  return hits;
+}
+/* 原文 → 去掉空白并小写后的文本，同时记录每个字符在原文中的位置 */
+function buildNormWithMap(raw){
+  const normMap = [];
+  let norm = '';
+  for(let i=0;i<raw.length;i++){
+    const ch = raw[i];
+    if(/\s/.test(ch) || ch === '\u3000') continue;
+    normMap.push(i);
+    norm += normalizeWidth(ch).toLowerCase();
+  }
+  return { norm, normMap, raw };
+}
+/* ==================== 通配符匹配 ==================== */
+/* 支持标准通配符：
+     *  = 任意 1 个或多个字符（不含 0 个）
+     ?  = 恰好一个字符（不含 0 个）
+   也接受全角 ＊ ？。
+   搜索框采用“包含”匹配，模式可以在文本任意位置出现。 */
+function hasWildcard(s){
+  return /[*?＊？]/.test(String(s == null ? '' : s));
+}
+function normalizeWildcardPattern(s){
+  return String(s == null ? '' : s)
+    .replace(/＊/g, '*')
+    .replace(/？/g, '?');
+}
+function escapeRegExpChar(ch){
+  return /[.*+?^${}()|[\]\\]/.test(ch) ? '\\' + ch : ch;
+}
+/* 通配符匹配用归一化：下标/上标数字还原为普通数字，去空白，小写 */
+function buildWildcardNormWithMap(raw){
+  raw = String(raw == null ? '' : raw);
+  const normMap = [];
+  let norm = '';
+  for(let i=0;i<raw.length;i++){
+    const ch = raw[i];
+    if(/\s/.test(ch) || ch === '\u3000') continue;
+    const mapped = normalizeWidth(ch);
+    for(const c of mapped){
+      let out = c;
+      if(SUB_TO_DIGIT[c]) out = SUB_TO_DIGIT[c];
+      else if(SUP_TO_PLAIN[c]) out = SUP_TO_PLAIN[c];
+      normMap.push(i);
+      norm += out.toLowerCase();
+    }
+  }
+  return { norm, normMap, raw };
+}
+function normalizeWildcardText(s){
+  return buildWildcardNormWithMap(s).norm;
+}
+function wildcardToRegex(pattern, opts){
+  opts = opts || {};
+  const norm = normalizeWildcardText(normalizeWildcardPattern(pattern));
+  let src = '';
+  for(const ch of norm){
+    if(ch === '*') src += opts.nonGreedy ? '.+?' : '.+';
+    else if(ch === '?') src += '.';
+    else src += escapeRegExpChar(ch);
+  }
+  return new RegExp(src, opts.global ? 'gu' : 'u');
+}
+/* 提取通配符模式里的字面片段，用于高亮/计数 */
+function wildcardLiteralSegments(pattern){
+  const norm = normalizeWildcardText(normalizeWildcardPattern(pattern));
+  return norm.split(/[*?]+/).filter(Boolean);
+}
+function wildcardMatches(rawText, pattern){
+  if(!pattern) return false;
+  const gm = buildGroupMatcher(pattern);
+  if(!gm.wildcard){
+    return normalizeWildcardText(rawText).includes(normalizeWildcardText(pattern));
+  }
+  return wildcardFindMatches(rawText, gm, 1).length > 0;
+}
+/* 通配符的方向：开头是字面字符 → 左侧要边界；结尾是字面字符 → 右侧要边界。
+   *cl  → 只要求右边界（任意前缀 + cl + 右侧空白/中文/符号）
+   cl*  → 只要求左边界
+   *cl* → 两侧都不要求（任意包含）
+   ?cl  → 右边界；cl? → 左边界 */
+function wildcardDirectionFlags(pattern){
+  const norm = normalizeWildcardText(normalizeWildcardPattern(pattern));
+  return {
+    leftStrict: norm.length > 0 && !/^[*?]/.test(norm),
+    rightStrict: norm.length > 0 && !/[*?]$/.test(norm)
+  };
+}
+/* 在原文里找通配符匹配，带方向边界。
+   返回的 start/end 位于“通配符归一化文本”中（下标/上标已转普通字符）。 */
+function wildcardFindMatches(rawText, gm, limit){
+  const src = String(rawText == null ? '' : rawText);
+  const w = buildWildcardNormWithMap(src);
+  const norm = w.norm;
+  if(!norm) return [];
+  const re = (gm && gm.countRegex)
+    ? gm.countRegex
+    : wildcardToRegex(gm.pattern, {global:true, nonGreedy:true});
+  re.lastIndex = 0;
+  const out = [];
+  let m, guard = 0;
+  while((m = re.exec(norm)) !== null && guard++ < 20000){
+    if(m[0].length === 0){ re.lastIndex++; continue; }
+    const start = m.index;
+    const end = start + m[0].length;
+    const startRaw = w.normMap[start];
+    const endRaw = w.normMap[end - 1] + 1;
+    let ok = true;
+    if(gm.leftStrict && !formulaBoundaryOkRawMode(src, startRaw, endRaw, 'left')) ok = false;
+    if(ok && gm.rightStrict && !formulaBoundaryOkRawMode(src, startRaw, endRaw, 'right')) ok = false;
+    if(ok){
+      out.push({start, end});
+      if(limit && out.length >= limit) break;
+    } else {
+      // 这个位置不满足边界，从下一个字符继续找，避免漏掉重叠的有效匹配
+      re.lastIndex = start + 1;
+    }
+  }
+  return out;
+}
+function countWildcardHits(rawText, pattern, precompiled){
+  if(!pattern) return 0;
+  const norm = normalizeWildcardText(rawText);
+  if(!norm) return 0;
+  const normPattern = normalizeWildcardText(normalizeWildcardPattern(pattern));
+  // 只有通配符、没有字面字符：视为“匹配全部”，计 1 处
+  if(!normPattern || /^[*?]+$/.test(normPattern)) return 1;
+  const re = precompiled || wildcardToRegex(pattern, { global:true, nonGreedy:true });
+  re.lastIndex = 0;
+  let n = 0, guard = 0, m;
+  while((m = re.exec(norm)) !== null && guard++ < 10000){
+    if(m[0].length === 0){ re.lastIndex++; continue; }
+    n++;
+  }
+  return n;
+}
+/* 数字 → 上标数字，用于通配符字面片段的额外高亮变体 */
+function addSupVariants(set){
+  const extra = [];
+  set.forEach(kw=>{
+    let sup = '';
+    for(const ch of kw) sup += (SUP_DIGIT[ch] || ch);
+    if(sup !== kw) extra.push(sup);
+  });
+  extra.forEach(v => set.add(v));
+}
+/* 通配符模式中字面片段的高亮变体（下标/上标/电荷都覆盖）。
+   同时给每个片段标上方向边界：开头片段看左侧，结尾片段看右侧。
+   另外标记 needLeft/needRight：模式以通配符开头/结尾时，
+   字面片段前面/后面必须至少有一个字符（* 为 1+、? 为 1，都不含 0）。 */
+function wildcardHighlightVariants(pattern){
+  const out = [];
+  const seen = new Set();
+  const normPattern = normalizeWildcardText(normalizeWildcardPattern(pattern));
+  const segments = wildcardLiteralSegments(pattern);
+  const startsWithLiteral = normPattern.length > 0 && !/^[*?]/.test(normPattern);
+  const endsWithLiteral = normPattern.length > 0 && !/[*?]$/.test(normPattern);
+
+  segments.forEach((seg, i)=>{
+    const boundaryLeft = startsWithLiteral && i === 0;
+    const boundaryRight = endsWithLiteral && i === segments.length - 1;
+    const boundary = boundaryLeft && boundaryRight ? 'both' : boundaryLeft ? 'left' : boundaryRight ? 'right' : 'none';
+    const needLeft = !startsWithLiteral && i === 0;
+    const needRight = !endsWithLiteral && i === segments.length - 1;
+
+    const set = new Set([seg]);
+    addSubVariants(set);
+    addChargeVariants(set);
+    addSupVariants(set);
+    set.forEach(v=>{
+      if(!v || seen.has(v)) return;
+      seen.add(v);
+      out.push({ word: v, strict: boundary !== 'none', boundary, needLeft, needRight });
+    });
+  });
+  return out;
+}
+/* 把一个条件（单个搜索框）编译成匹配器 */
+function buildGroupMatcher(condition){
+  const raw = String(condition == null ? '' : condition).trim();
+  if(hasWildcard(raw)){
+    const pattern = normalizeWildcardPattern(raw);
+    const segments = wildcardLiteralSegments(pattern);
+    const empty = segments.length === 0;
+    const dir = wildcardDirectionFlags(pattern);
+    return {
+      wildcard: true,
+      pattern,
+      empty,
+      leftStrict: dir.leftStrict,
+      rightStrict: dir.rightStrict,
+      regex: empty ? null : wildcardToRegex(pattern),
+      countRegex: empty ? null : wildcardToRegex(pattern, { global:true, nonGreedy:true }),
+      variants: wildcardHighlightVariants(pattern)
+    };
+  }
+  const map = new Map();   // 归一化后的词 → 是否需要完整化学式边界
+  expandKeyword(raw.toLowerCase()).forEach(v=>{
+    const n = normalizeForMatch(v);
+    if(!n) return;
+    const strict = variantIsStrict(v, raw);
+    map.set(n, !!(map.get(n) || strict));
+  });
+  return {
+    wildcard: false,
+    pattern: null,
+    empty: false,
+    variants: [...map.entries()]
+      .map(([word, strict])=>({ word, strict }))
+      .sort((a,b)=>b.word.length - a.word.length)
+  };
+}
+function buildGroupMatchers(groups){
+  return groups.map(buildGroupMatcher);
+}
+/* 某个条件组是否命中给定文本 */
+function groupMatchesText(gm, normText, rawText, normMap){
+  if(!gm || gm.empty) return false;
+  if(gm.wildcard){
+    if(!gm.regex) return false;
+    return wildcardFindMatches(rawText != null ? rawText : normText, gm, 1).length > 0;
+  }
+  return gm.variants.some(v => textHasKeyword(normText, v.word, v.strict, rawText, normMap));
+}
+/* 某个条件组在文本里的命中次数 */
+function groupCountHits(gm, normText, rawText, normMap){
+  if(!gm || gm.empty) return 0;
+  if(gm.wildcard){
+    const normPattern = normalizeWildcardText(normalizeWildcardPattern(gm.pattern));
+    // 只有通配符、没有字面字符：视为“匹配全部”，计 1 处
+    if(!normPattern || /^[*?]+$/.test(normPattern)) return 1;
+    return wildcardFindMatches(rawText != null ? rawText : normText, gm).length;
+  }
+  return countKeywordHits(normText, gm.variants, rawText, normMap);
+}
+
 /* ==================== LaTeX 化学式 → Unicode 清理 ==================== */
 /* 把 PaddleOCR-VL / MinerU 等识别出的 LaTeX 化学式转为普通文本：
    $Na_{2}O_{2}$     → Na₂O₂
@@ -8863,38 +9335,37 @@ function cleanLatex(s){
 
 /* ---------- 匹配逻辑 ---------- */
 function matchText(item, kw){
-  kw = kw.trim().toLowerCase();
+  kw = kw.trim();
   if(!kw) return true;
 
-  let hay = normalizeWidth(item.title + ' ' + item.tags.join(' ') + ' ' + item.content).toLowerCase();
+  let raw = item.title + ' ' + item.tags.join(' ') + ' ' + item.content;
   if(item.exercises && item.exercises.length){
-    item.exercises.forEach(ex=>{ hay += ' ' + normalizeWidth(ex.q + ' ' + ex.a).toLowerCase(); });
+    item.exercises.forEach(ex=>{ raw += ' ' + ex.q + ' ' + ex.a; });
   }
-
-  const variants = expandKeyword(kw);
-  return variants.some(v => hay.includes(v));
+  // 保留空格的原文 + 位置映射，确保化学式边界判断准确
+  const hay = buildNormWithMap(raw);
+  const gm = buildGroupMatcher(kw);
+  return groupMatchesText(gm, hay.norm, hay.raw, hay.normMap);
 }
 function isMatch(item){
   if(currentBooks.size>0 && !currentBooks.has(item.book)) return false;
 
-  const groups = getConditionGroups();
-  if(groups.length === 0) return true;
+  const plan = getConditionPlan();
+  if(plan.groups.length === 0) return true;
 
   // —— 元数据字段的合并文本 ——
-  const metaText = normalizeWidth([item.book, item.chapter, item.section, item.title]
-    .filter(Boolean).join(' ')).toLowerCase();
-  const matchMeta = w => metaText.includes(normalizeWidth(w).toLowerCase());
+  const metaHay = buildNormWithMap([item.book, item.chapter, item.section, item.title]
+    .filter(Boolean).join(' '));
+  const matchMeta = w => {
+    const gm = buildGroupMatcher(w);
+    return groupMatchesText(gm, metaHay.norm, metaHay.raw, metaHay.normMap);
+  };
 
   // 每个关键词：命中正文/标签/习题 或 命中元数据，都算命中
   const matchGroup = words => words.every(w => matchText(item, w) || matchMeta(w));
 
-  let res = matchGroup(groups[0]);
-  for(let i=1; i<groups.length; i++){
-    const r = matchGroup(groups[i]);
-    if(condLogic[i-1] === 'or') res = res || r;
-    else                        res = res && r;
-  }
-  return res;
+  const groupHits = plan.groups.map(matchGroup);
+  return evalGroupHits(groupHits, plan.ops);
 }
 
 
@@ -8903,17 +9374,44 @@ function escapeHtml(s){
 }
 
 function highlightText(text, entries){
-  let html = escapeHtml(text);
-  [...entries]
-    .sort((a,b)=> b.word.length - a.word.length)
-    .forEach(({word, colorIndex})=>{
-      if(!word) return;
-      const esc = word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-      html = html.replace(
-        new RegExp(esc,'gi'),
-        m => `<mark class="hl-${colorIndex % 8}">${m}</mark>`
-      );
-    });
+  const raw = String(text == null ? '' : text);
+  if(!raw || !entries || !entries.length) return escapeHtml(raw);
+
+  const lower = raw.toLowerCase();
+  const ranges = [];
+  // 长词优先，避免 Cl₂ 被更短的 Cl 抢先标记
+  const sorted = [...entries]
+    .filter(e => e && e.word)
+    .sort((a,b)=> b.word.length - a.word.length);
+
+  for(const e of sorted){
+    const needle = String(e.word).toLowerCase();
+    if(!needle) continue;
+    const strict = (typeof e.strict === 'boolean')
+      ? e.strict
+      : variantIsStrict(needle, needle);
+    let pos = 0;
+    while((pos = lower.indexOf(needle, pos)) !== -1){
+      const end = pos + needle.length;
+      if((!strict || formulaBoundaryOk(lower, needle, pos)) &&
+         !ranges.some(r => pos < r.end && end > r.start)){
+        ranges.push({ start: pos, end, colorIndex: e.colorIndex || 0 });
+      }
+      pos += 1;
+    }
+  }
+
+  if(!ranges.length) return escapeHtml(raw);
+  ranges.sort((a,b)=> a.start - b.start);
+
+  let html = '';
+  let cursor = 0;
+  for(const r of ranges){
+    html += escapeHtml(raw.slice(cursor, r.start));
+    html += `<mark class="hl-${r.colorIndex % 8}">${escapeHtml(raw.slice(r.start, r.end))}</mark>`;
+    cursor = r.end;
+  }
+  html += escapeHtml(raw.slice(cursor));
   return html;
 }
 function renderLineWithStruct(line, entries){
@@ -8953,23 +9451,65 @@ function renderLineWithStruct(line, entries){
   return html;
 }
 
+/* 返回非空条件组 + 组间逻辑（与/或/非），并修正空条件导致的错位 */
+function getConditionPlan(){
+  const groups = [];
+  const ops = [];
+  conditions.forEach((c, i)=>{
+    const w = (c || '').trim();
+    if(!w) return;
+    if(groups.length){
+      ops.push(condLogic[i - 1] || 'and');
+    }
+    groups.push([w]);
+  });
+  return { groups, ops };
+}
 function getConditionGroups(){
-  return conditions
-    .map(c => (c || '').trim())
-    .filter(c => c.length > 0)
-    .map(c => [c]);
+  return getConditionPlan().groups;
+}
+function isGroupNegated(index, ops){
+  return index > 0 && ops[index - 1] === 'not';
+}
+/* 按 与/或/非 计算各条件组是否命中 */
+function evalGroupHits(groupHits, ops){
+  if(!groupHits.length) return true;
+  let res = !!groupHits[0];
+  for(let i=1; i<groupHits.length; i++){
+    const r = !!groupHits[i];
+    const op = ops[i-1] || 'and';
+    if(op === 'or')       res = res || r;
+    else if(op === 'not') res = res && !r;
+    else                  res = res && r;
+  }
+  return res;
 }
 
 function getHighlightEntries(){
   const entries = [];
   let colorIndex = 0;
-  conditions.forEach(c => {
-    const words = c.trim().split(/\s+/).filter(Boolean);
-    words.forEach(w => {
-      expandKeyword(w.toLowerCase()).forEach(v => {
-        if(v) entries.push({ word: v, colorIndex });
+  const plan = getConditionPlan();
+  plan.groups.forEach((g, gi)=>{
+    const negated = isGroupNegated(gi, plan.ops);
+    g.forEach(c => {
+      if(hasWildcard(c)){
+        if(!negated){
+          buildGroupMatcher(c).variants.forEach(v=>{
+            entries.push({ word: v.word, colorIndex, strict: false });
+          });
+        }
+        colorIndex++;
+        return;
+      }
+      const words = c.trim().split(/\s+/).filter(Boolean);
+      words.forEach(w => {
+        if(!negated){
+          expandKeyword(w.toLowerCase()).forEach(v => {
+            if(v) entries.push({ word: v, colorIndex, strict: variantIsStrict(v, w) });
+          });
+        }
+        colorIndex++;
       });
-      colorIndex++;
     });
   });
   return entries;
@@ -9105,13 +9645,32 @@ function makeEqCard(title, groups, metaText, opts){
   return card;
 }
 
-function eqItemMatches(it, entries){
-  if(!entries.length) return true;
+function eqTextOf(it){
   const t = it.t || it.title || '';
   const c = it.c || it.chem || '';
   const i = it.i || it.ion || '';
-  const hay = normalizeWidth(t + ' ' + c + ' ' + i).toLowerCase();
-  return entries.some(e => e.word && hay.includes(normalizeWidth(e.word).toLowerCase()));
+  // 保留空格的原文 + 位置映射，确保化学式边界判断准确
+  return buildNormWithMap(t + ' ' + c + ' ' + i);
+}
+/* 手册条目匹配用的条件变体缓存（避免每个条目都重复 expandKeyword） */
+let __condMatcherCache = { key:'', groups:[], ops:[] };
+function getConditionMatchers(){
+  const plan = getConditionPlan();
+  const key = JSON.stringify({ g: plan.groups, o: plan.ops });
+  if(__condMatcherCache.key === key) return __condMatcherCache;
+
+  const groups = buildGroupMatchers(plan.groups);
+  __condMatcherCache = { key, groups, ops: plan.ops };
+  return __condMatcherCache;
+}
+function eqItemMatches(it, entries){
+  const matcher = getConditionMatchers();
+  if(!matcher.groups.length) return true;
+
+  const hay = eqTextOf(it);
+  const matchGroup = gm => groupMatchesText(gm, hay.norm, hay.raw, hay.normMap);
+
+  return evalGroupHits(matcher.groups.map(matchGroup), matcher.ops);
 }
 
 function makeManualSectionTitle(text){
@@ -9264,20 +9823,11 @@ function renderManual(){
   }
 
   if(hasKeyword){
-    countEl.textContent = `共 ${total} 个匹配的条目`;
-    hintEl.textContent = '已按关键词过滤';
+    countEl.textContent = `匹配${total}个`;
   } else {
-    const parts = [];
-    if(counts.common) parts.push(`${counts.common} 个俗称`);
-    if(counts.color) parts.push(`${counts.color} 条颜色`);
-    if(counts.formula) parts.push(`${counts.formula} 个公式`);
-    if(counts.confuse) parts.push(`${counts.confuse} 条易混淆`);
-    if(counts.kp) parts.push(`${counts.kp} 个知识点`);
-    countEl.textContent = `共 ${parts.join(' · ')}`;
-    hintEl.textContent = subject === '化学'
-      ? '俗称 · 颜色 · 公式 · 知识点 · 点击卡片展开'
-      : '俗称 · 公式 · 知识点 · 点击卡片展开';
+    countEl.textContent = '';
   }
+  hintEl.textContent = SEARCH_HINT;
 
   if(cardCount === 0){
     listEl.innerHTML = `<div class="empty">
@@ -9303,64 +9853,77 @@ function renderAll(){
   matchIndex = -1;
 
   const entries = getHighlightEntries();
-  const hasKeyword = entries.length > 0;
+  const plan = getConditionPlan();
+  const hasKeyword = plan.groups.length > 0;
 
   // 收集每个教材的匹配数
   const allPages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')];
   const bookMap = new Map();   // bookName → count
 
   if(hasKeyword){
-    const groups = getConditionGroups();
-    const groupVariants = groups.map(g=>{
-      const s = new Set();
-      g.forEach(w=>{
-        expandKeyword(w.toLowerCase()).forEach(v=>{
-          const n = normalizeForMatch(v);
-          if(n) s.add(n);
-        });
-      });
-      return [...s].sort((a,b)=>b.length-a.length);
-    });
-    const flatVariants = groupVariants.flat();
+    const groupMatchers = buildGroupMatchers(plan.groups);
+    // “非”条件只用于排除，不计入匹配数
+    const positiveMatchers = groupMatchers.filter((_, i) => !isGroupNegated(i, plan.ops));
 
-  // 变体按长度降序排列，避免长变体（如 na2o2）被短变体（如 na）
-  // 重复计数；同时去重。
-  const orderedVariants = [...new Set(flatVariants)]
-    .filter(Boolean)
-    .sort((a,b) => b.length - a.length);
+    allPages.forEach(pageEl=>{
+      const book = pageEl.dataset.book || '未命名';
 
-  allPages.forEach(pageEl=>{
-    const book = pageEl.dataset.book || '未命名';
-
-    // 懒构建 normText（首次访问时从文本层计算）
-    let pageText = pageEl.dataset.normText;
-    if(!pageText){
-      const tl = pageEl.querySelector('.text-layer');
-      const raw = tl ? (tl.textContent || '') : (pageEl.textContent || '');
-      pageText = normalizeForMatch(raw);
-      pageEl.dataset.normText = pageText;
-    }
-    if(!pageText) return;
-
-    // ★ 统计本页内的"匹配处数"，而不是"是否有匹配"
-    // 逐个变体扫描，命中后把该段替换成等长占位符，
-    // 避免被后续更短的变体重复计入。
-    let scratch = pageText;
-    let hits = 0;
-    for(const v of orderedVariants){
-      let pos = 0;
-      while((pos = scratch.indexOf(v, pos)) !== -1){
-        hits++;
-        scratch = scratch.slice(0, pos)
-                + '\u0000'.repeat(v.length)
-                + scratch.slice(pos + v.length);
-        pos += v.length;
+      // 懒构建“归一化文本 + 原文位置映射”
+      // 化学式边界判断必须看保留空格的原文，否则 "Cl2 and" 会被误判成 "Cl2and"
+      let searchText = pageEl.__searchText;
+      if(!searchText){
+        const tl = pageEl.querySelector('.text-layer');
+        const raw = tl ? (tl.textContent || '') : (pageEl.textContent || '');
+        searchText = buildNormWithMap(raw);
+        pageEl.__searchText = searchText;
+        pageEl.dataset.normText = searchText.norm;
       }
-    }
-    if(hits === 0) return;
+      const pageText = searchText.norm;
+      const pageRaw = searchText.raw;
+      const pageMap = searchText.normMap;
+      if(!pageText) return;
 
-    bookMap.set(book, (bookMap.get(book) || 0) + hits);
-  });
+      // 各条件组是否在本页出现
+      const groupHits = groupMatchers.map(gm =>
+        groupMatchesText(gm, pageText, pageRaw, pageMap)
+      );
+
+      let hits = 0;
+      if(pageEl.classList.contains('txt-doc')){
+        // TXT 文档：正向条件按整篇判断，“非”按行排除
+        const positiveHits = [];
+        const positiveOps = [];
+        groupHits.forEach((h, i)=>{
+          if(isGroupNegated(i, plan.ops)) return;
+          if(positiveHits.length) positiveOps.push(plan.ops[i - 1] || 'and');
+          positiveHits.push(h);
+        });
+        if(positiveHits.length && !evalGroupHits(positiveHits, positiveOps)) return;
+
+        const lines = [...pageEl.querySelectorAll('.txt-line')]
+          .map(l => buildNormWithMap(l.textContent || ''));
+        lines.forEach(line=>{
+          if(!line.norm) return;
+          const hasNeg = groupMatchers.some((gm, i)=>
+            isGroupNegated(i, plan.ops) &&
+            groupMatchesText(gm, line.norm, line.raw, line.normMap)
+          );
+          if(hasNeg) return;
+          positiveMatchers.forEach(gm => {
+            hits += groupCountHits(gm, line.norm, line.raw, line.normMap);
+          });
+        });
+      } else {
+        // PDF 页：与/或/非 都按整页判断
+        if(!evalGroupHits(groupHits, plan.ops)) return;
+        positiveMatchers.forEach(gm => {
+          hits += groupCountHits(gm, pageText, pageRaw, pageMap);
+        });
+      }
+
+      if(hits === 0) return;
+      bookMap.set(book, (bookMap.get(book) || 0) + hits);
+    });
   } else {
     // 无关键词：显示总页数（不依赖 searchSpans）
     allPages.forEach(pageEl=>{
@@ -9524,14 +10087,12 @@ function renderAll(){
   // ========== 状态栏 ==========
   let bookPart = 0;
   bookMap.forEach(c => bookPart += c);
-  const bookLabel = bookMap.size > 0 ? `教材 ${bookMap.size} 本（${bookPart} 页） + ` : '';
   if(hasKeyword){
-    countEl.textContent = `${bookLabel}共 ${bookPart + manualMatchTotal} 处匹配`;
-    hintEl.textContent = '已按关键词过滤';
+    countEl.textContent = `匹配${bookPart + manualMatchTotal}个`;
   } else {
-    countEl.textContent = `${bookLabel}${manualCardCount} 个科目手册`;
-    hintEl.textContent = '教材优先 · 手册在后';
+    countEl.textContent = '';
   }
+  hintEl.textContent = SEARCH_HINT;
 
   matchIndex = -1;
   updateNavBtns();
@@ -9698,10 +10259,16 @@ function render(){
   // 2) 无历史位置：
   if(hasKw){
     if(matchCards.length > 0){
-      matchIndex = 0;
       if(suppressAutoJump){
+        // 刚提交搜索：highlightPdfMatches 已按“当前可见页”算好起点，保留它，
+        // 这样在第 5 页再次搜索会从第 5 页往下，而不是跳回第 1 页。
+        if(matchIndex < 0 || matchIndex >= matchCards.length){
+          matchIndex = findSearchStartIndex(1);
+        }
+        if(matchIndex < 0) matchIndex = 0;
         highlightCardNoScroll();   // 只标记不滚动，由 handleNav 决定最终跳到哪
       } else {
+        matchIndex = 0;
         highlightCard();
       }
       if(bookName) saveBookPosition(bookName);
@@ -9745,28 +10312,27 @@ function highlightPdfMatches(){
     p.style.display = visible ? '' : 'none';
   });
 
-  const groups = getConditionGroups();
+  const plan = getConditionPlan();
+  const groups = plan.groups;
   if(groups.length === 0){
-    countEl.textContent = pdfPageCount ? `共 ${pdfPageCount} 页` : `共 ${searchSpans.length} 行`;
-    hintEl.textContent = '输入关键词开始搜索';
+    countEl.textContent = '';
+    hintEl.textContent = SEARCH_HINT;
     updateNavBtns();
     return;
   }
 
-  // 每个搜索框 → 变体集合
-  const groupVariants = groups.map(g=>{
-    const s = new Set();
-    g.forEach(w=>{
-      expandKeyword(w.toLowerCase()).forEach(v=>{
-        const n = normalizeForMatch(v);
-        if(n) s.add(n);
-      });
-    });
-    return [...s].sort((a,b)=>b.length-a.length);
-  });
+  // 每个搜索框 → 匹配器（普通关键词展开 / 通配符模式）
+  const groupMatchers = buildGroupMatchers(groups);
 
-  // 先做页级快速筛选：整页都不含任何变体的页直接跳过
-  const flatVariants = groupVariants.flat();
+  // 先做页级快速筛选：整页都不含任何“正向”字面变体的页直接跳过
+  // “非”条件只用于排除，不参与快速筛选
+  const flatVariants = [];
+  let canQuickFilter = true;
+  groupMatchers.forEach((gm, i)=>{
+    if(isGroupNegated(i, plan.ops)) return;
+    if(!gm.variants.length) canQuickFilter = false;
+    gm.variants.forEach(v => { if(v && v.word) flatVariants.push(v); });
+  });
   pageContainers.forEach(pageEl=>{
     if(pageEl.style.display === 'none') return;
 
@@ -9777,52 +10343,37 @@ function highlightPdfMatches(){
 	  pageText = normalizeForMatch(raw);
 	  pageEl.dataset.normText = pageText;
 	}
-    if(pageText){
-      // 该页不含任何变体 → 直接跳过（快速路径）
-      const anyHit = flatVariants.some(v => v && pageText.includes(v));
+    if(pageText && canQuickFilter){
+      // 该页不含任何正向字面变体 → 直接跳过（快速路径）
+      // 这里只做宽松的 includes 预筛，必须保证是真正匹配的超集：
+      // 若用化学式边界判断，可能把 "Cl2 and"（去空格后 cl2and）误判为不匹配而漏页。
+      const anyHit = flatVariants.some(v => pageText.includes(v.word));
       if(!anyHit) return;
     }
-    processPageForSearch(pageEl, groupVariants);
+    processPageForSearch(pageEl, groupMatchers);
   });
 
   // 换关键词时：优先定位到"当前页或之后"的第一个匹配（视觉标记，不滚动）
   if(matchCards.length){
-    const curPage = getCurrentVisiblePage();
-    if(curPage){
-      let idx = matchCards.findIndex(m => pageOfMatch(m) === curPage);
-      if(idx < 0){
-        // 当前页无匹配 → 向后找当前页之后的第一个匹配
-        const allPages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
-          .filter(p => p.style.display !== 'none');
-        const curIdx = allPages.indexOf(curPage);
-        if(curIdx >= 0){
-          for(let i = curIdx + 1; i < allPages.length; i++){
-            const nIdx = matchCards.findIndex(m => pageOfMatch(m) === allPages[i]);
-            if(nIdx >= 0){ idx = nIdx; break; }
-          }
-        }
-      }
-      // 若往后一直到末尾都没匹配（即匹配都在当前页之前），保持 -1
-      // 让用户按 ↓ 时从第 0 项开始，按 ↑ 时无响应——符合直觉
-      if(idx >= 0){
-        matchIndex = idx;
-        highlightCardNoScroll();
-      }
+    const idx = findSearchStartIndex(1);
+    if(idx >= 0){
+      matchIndex = idx;
+      highlightCardNoScroll();
     }
   }
 
-  countEl.textContent = `共 ${matchCards.length} 处匹配`;
-  hintEl.textContent = matchCards.length ? '点击 ↑↓ 或 ‹› 跳转' : '未找到匹配';
+  countEl.textContent = `匹配${matchCards.length}个`;
+  hintEl.textContent = SEARCH_HINT;
   updateNavBtns();
 }
 
 /* 在单页里查找并按"短语"作为一次匹配注册 */
-function processPageForSearch(pageEl, groupVariants){
+function processPageForSearch(pageEl, groupMatchers){
   const textLayer = pageEl.querySelector('.text-layer');
   const txtDoc = pageEl.classList.contains('txt-doc') ? pageEl : null;
 
   if(txtDoc){
-    processTxtDocForSearch(txtDoc, groupVariants);
+    processTxtDocForSearch(txtDoc, groupMatchers);
     return;
   }
   if(!textLayer) return;
@@ -9842,6 +10393,8 @@ function processPageForSearch(pageEl, groupVariants){
   // 构建归一化文本 + 位置映射
   const entries = [];
   let fullNorm = '';
+  let fullRaw = '';
+  const normMapGlobal = [];
   for(const node of textNodes){
     const raw = node.nodeValue || '';
     const normToRaw = [];
@@ -9853,37 +10406,48 @@ function processPageForSearch(pageEl, groupVariants){
       norm += normalizeWidth(ch).toLowerCase();
     }
     if(norm.length){
-      entries.push({node, norm, normToRaw, startInFull: fullNorm.length});
+      const rawStart = fullRaw.length;
+      entries.push({node, norm, normToRaw, startInFull: fullNorm.length, rawStart});
+      for(const localIdx of normToRaw) normMapGlobal.push(rawStart + localIdx);
+      fullRaw += raw;
       fullNorm += norm;
     }
   }
   if(!fullNorm) return;
 
-  // 找所有匹配
+  // 找所有匹配（包括“非”条件，用来判断整页是否命中）
+  const plan = getConditionPlan();
   const allMatches = [];
-  groupVariants.forEach((variants, gIdx)=>{
-    variants.forEach(v=>{
-      if(!v) return;
-      let pos = 0;
-      while((pos = fullNorm.indexOf(v, pos)) !== -1){
-        allMatches.push({start: pos, end: pos + v.length, group: gIdx});
-        pos += v.length;
-      }
+  groupMatchers.forEach((gm, gIdx)=>{
+    gm.variants.forEach(v=>{
+      if(!v || !v.word) return;
+      collectKeywordMatches(fullNorm, v.word, v.strict, gIdx, allMatches, fullRaw, normMapGlobal, v.boundary, v);
     });
   });
-  if(!allMatches.length) return;
+
+  // 去重：同一位置可能被 cl2 / cl₂ 等多个变体命中
+  const seen = new Set();
+  const uniqueMatches = [];
+  allMatches.forEach(m=>{
+    const key = m.start + ':' + m.end + ':' + m.group;
+    if(seen.has(key)) return;
+    seen.add(key);
+    uniqueMatches.push(m);
+  });
+  if(!uniqueMatches.length) return;
 
   // ★ 按位置排序，让同页内不同关键词按出现顺序混合
-  allMatches.sort((a, b) => a.start - b.start || a.group - b.group);
+  uniqueMatches.sort((a, b) => a.start - b.start || a.group - b.group);
 
-  // 页级 AND/OR
-  const groupHits = groupVariants.map((_, i)=> allMatches.some(m => m.group === i));
-  let ok = groupHits[0];
-  for(let i=1;i<groupHits.length;i++){
-    if(condLogic[i-1]==='or') ok = ok || groupHits[i];
-    else ok = ok && groupHits[i];
-  }
-  if(!ok) return;
+  // 页级 与/或/非
+  const groupHits = groupMatchers.map(gm =>
+    groupMatchesText(gm, fullNorm, fullRaw, normMapGlobal)
+  );
+  if(!evalGroupHits(groupHits, plan.ops)) return;
+
+  // “非”条件只用于排除，不高亮
+  const visibleMatches = uniqueMatches.filter(m => !isGroupNegated(m.group, plan.ops));
+  if(!visibleMatches.length) return;
 
   // 准备 overlay
   let overlay = textLayer.querySelector('.hl-overlay');
@@ -9897,7 +10461,7 @@ function processPageForSearch(pageEl, groupVariants){
   const layerRect = textLayer.getBoundingClientRect();
 
   // 为每个匹配生成 rect
-  allMatches.forEach(m=>{
+  visibleMatches.forEach(m=>{
     const r = rangeFromNorm(entries, m.start, m.end);
     if(!r) return;
     let rects;
@@ -9957,7 +10521,7 @@ function rangeFromNorm(entries, startNorm, endNorm){
 }
 
 /* TXT 精确高亮：使用 <span class="hl-txt"> 包裹匹配文字 */
-function processTxtDocForSearch(txtDoc, groupVariants){
+function processTxtDocForSearch(txtDoc, groupMatchers){
   const lines = Array.from(txtDoc.querySelectorAll('.txt-line'));
   if(!lines.length) return;
 
@@ -9975,34 +10539,77 @@ function processTxtDocForSearch(txtDoc, groupVariants){
   });
   const fullNorm = lineData.map(d=>d.norm).join('');
   if(!fullNorm) return;
+  // 每行在 fullNorm 中的起始位置（通配符按行判断 * / ? 前后是否有字符）
+  let accStart = 0;
+  lineData.forEach(d=>{ d.startInFull = accStart; accStart += d.norm.length; });
 
+  // 保留空格的原文 + 归一化位置映射，用于化学式边界判断
+  let fullRaw = '';
+  const normMapGlobal = [];
+  lineData.forEach((d, i)=>{
+    if(i > 0) fullRaw += '\n';
+    d.rawStart = fullRaw.length;
+    for(const localIdx of d.normToRaw) normMapGlobal.push(d.rawStart + localIdx);
+    fullRaw += d.raw;
+  });
+
+  const plan = getConditionPlan();
   const allMatches = [];
-  groupVariants.forEach((variants, gIdx)=>{
-    variants.forEach(v=>{
-      if(!v) return;
-      let pos = 0;
-      while((pos = fullNorm.indexOf(v, pos)) !== -1){
-        allMatches.push({start: pos, end: pos + v.length, group: gIdx});
-        pos += v.length;
-      }
+  groupMatchers.forEach((gm, gIdx)=>{
+    gm.variants.forEach(v=>{
+      if(!v || !v.word) return;
+      collectKeywordMatches(fullNorm, v.word, v.strict, gIdx, allMatches, fullRaw, normMapGlobal, v.boundary, v);
     });
   });
-  if(!allMatches.length) return;
+
+  // ★ 通配符 * / ? 都不含 0 个：TXT 按“行”判断。
+  //   行首的 cl2 前面没有字符 → *cl2 不匹配；行尾的 cl 后面没有字符 → cl* 不匹配。
+  //   这样与 renderAll 里按行的计数保持一致。
+  const lineFilteredMatches = allMatches.filter(m=>{
+    if(!m.needLeft && !m.needRight) return true;
+    let li = 0;
+    while(li + 1 < lineData.length && m.start >= lineData[li + 1].startInFull) li++;
+    const d = lineData[li];
+    const localStart = m.start - d.startInFull;
+    const localEnd = m.end - d.startInFull;
+    if(m.needLeft && localStart <= 0) return false;
+    if(m.needRight && localEnd >= d.norm.length) return false;
+    return true;
+  });
+
+  // 去重：同一位置可能被 cl2 / cl₂ 等多个变体命中
+  const seen = new Set();
+  const uniqueMatches = [];
+  lineFilteredMatches.forEach(m=>{
+    const key = m.start + ':' + m.end + ':' + m.group;
+    if(seen.has(key)) return;
+    seen.add(key);
+    uniqueMatches.push(m);
+  });
+  if(!uniqueMatches.length) return;
 
   // ★ 按位置排序，让同页内不同关键词按出现顺序混合
-  allMatches.sort((a, b) => a.start - b.start || a.group - b.group);
+  uniqueMatches.sort((a, b) => a.start - b.start || a.group - b.group);
 
-  const groupHits = groupVariants.map((_, i)=> allMatches.some(m => m.group === i));
-  let ok = groupHits[0];
-  for(let i=1;i<groupHits.length;i++){
-    if(condLogic[i-1]==='or') ok = ok || groupHits[i];
-    else ok = ok && groupHits[i];
-  }
-  if(!ok) return;
+  const groupHits = groupMatchers.map(gm =>
+    groupMatchesText(gm, fullNorm, fullRaw, normMapGlobal)
+  );
 
-  // 计算每行的全局起始 norm 位置
-  let acc = 0;
-  lineData.forEach(d=>{ d.startInFull = acc; acc += d.norm.length; });
+  // TXT 文档按“行”处理“非”：只排除含排除词的行，不因为文件别处出现排除词而整篇作废
+  const positiveHits = [];
+  const positiveOps = [];
+  groupHits.forEach((h, i)=>{
+    if(isGroupNegated(i, plan.ops)) return;
+    if(positiveHits.length) positiveOps.push(plan.ops[i - 1] || 'and');
+    positiveHits.push(h);
+  });
+  if(positiveHits.length && !evalGroupHits(positiveHits, positiveOps)) return;
+
+  // “非”条件只用于排除，不高亮
+  const visibleMatches = uniqueMatches.filter(m => !isGroupNegated(m.group, plan.ops));
+  if(!visibleMatches.length) return;
+
+  // 每行的全局起始 norm 位置已在前面计算（d.startInFull）
 
   // 对每行：重建 DOM 内容，用 hl-txt 包裹匹配片段
   lineData.forEach(d=>{
@@ -10010,9 +10617,16 @@ function processTxtDocForSearch(txtDoc, groupVariants){
     const lineStart = d.startInFull;
     const lineEnd = lineStart + d.norm.length;
 
+    // 本行命中任一“非”条件 → 整行不显示匹配
+    const hasNeg = groupMatchers.some((gm, i)=>
+      isGroupNegated(i, plan.ops) &&
+      groupMatchesText(gm, d.norm, d.raw, d.normToRaw)
+    );
+    if(hasNeg) return;
+
     // 该行内所有匹配片段（基于 norm 位置）
     const localHits = [];
-    allMatches.forEach(m=>{
+    visibleMatches.forEach(m=>{
       const s = Math.max(m.start, lineStart);
       const e = Math.min(m.end, lineEnd);
       if(s >= e) return;
@@ -10249,14 +10863,18 @@ function commitDraft(){
 /* ★ 导航按钮统一入口：先提交（如果需要），再跳转 */
 function handleNav(dir){
   if(draftHasChanges()){
+    pendingSearchAnchor = captureVisiblePageAnchor();
     commitDraft();
-    // 提交完后决定跳到哪端
+    // 提交完后：从提交前所在页开始（第 5 页搜索就从第 5 页往下）
     if(matchCards.length > 0){
-      matchIndex = dir > 0 ? 0 : matchCards.length - 1;
+      let idx = findSearchStartIndex(dir);
+      if(idx < 0) idx = dir > 0 ? 0 : matchCards.length - 1;
+      matchIndex = idx;
       highlightCard();
       const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
       if(bn) saveBookPosition(bn);
     }
+    pendingSearchAnchor = null;
     return;
   }
   jumpByMatch(dir);
@@ -10265,13 +10883,15 @@ function handleNav(dir){
 /* ← / →：先提交草稿，再按页跳转 */
 function handlePageNav(dir){
   if(draftHasChanges()){
+    pendingSearchAnchor = captureVisiblePageAnchor();
     commitDraft();
     if(matchCards.length > 0){
-      matchIndex = dir > 0 ? 0 : matchCards.length - 1;
-      highlightCard();
+      // 提交后从提交前所在页的下一页/上一页开始
+      jumpByPage(dir);
       const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
       if(bn) saveBookPosition(bn);
     }
+    pendingSearchAnchor = null;
     return;
   }
   jumpByPage(dir);
@@ -10293,7 +10913,9 @@ function jumpByMatch(dir){
 
   // PDF/TXT 视图
   if(matchIndex < 0 || matchIndex >= matchCards.length){
-    matchIndex = dir > 0 ? 0 : matchCards.length - 1;
+    let idx = findSearchStartIndex(dir);
+    if(idx < 0) idx = dir > 0 ? 0 : matchCards.length - 1;
+    matchIndex = idx;
     highlightCard();
     return;
   }
@@ -10388,16 +11010,26 @@ function jumpByPage(dir){
     .filter(p=>p.style.display !== 'none');
   if(!allPages.length) return;
 
-  // ★ 基线优先用 matchIndex 所在页（上次定位的页，稳定）
-  //   只有 matchIndex 无效时，才退回用"当前可见页"
+  // ★ 基线：用户手动滚动后以“当前可见页”为准，这样翻到第 5 页按下一页会去第 6 页；
+  //   平滑滚动过程中仍用 matchIndex 所在页，避免动画中间态导致跳页。
+  //   提交搜索时用提交前记录的锚点（render 可能已重置滚动位置）。
+  const anchorPage = resolveVisiblePageAnchor(pendingSearchAnchor);
   let baseIdx = -1;
+  const curVisible = anchorPage || getCurrentVisiblePage();
+  const curVisibleIdx = curVisible ? allPages.indexOf(curVisible) : -1;
+  let matchPageIdx = -1;
   if(matchIndex >= 0 && matchIndex < matchCards.length){
     const p = pageOfMatch(matchCards[matchIndex]);
-    if(p) baseIdx = allPages.indexOf(p);
+    if(p) matchPageIdx = allPages.indexOf(p);
   }
-  if(baseIdx < 0){
-    const curVisible = getCurrentVisiblePage();
-    if(curVisible) baseIdx = allPages.indexOf(curVisible);
+  if(anchorPage && curVisibleIdx >= 0){
+    baseIdx = curVisibleIdx;
+  } else if(isSmoothScrolling && matchPageIdx >= 0){
+    baseIdx = matchPageIdx;
+  } else if(curVisibleIdx >= 0){
+    baseIdx = curVisibleIdx;
+  } else if(matchPageIdx >= 0){
+    baseIdx = matchPageIdx;
   }
   if(baseIdx < 0){
     matchIndex = dir > 0 ? 0 : matchCards.length - 1;
@@ -10425,16 +11057,86 @@ function jumpByPage(dir){
 }
 
 
-/* 当前视口中第一个可见的页面（跳过顶栏遮挡） */
+/* 当前视口中占据面积最大的页面（跳过顶栏遮挡）。
+   之前的实现取“第一个底边露出顶栏的页面”，在 highlightCard 把匹配滚到视口 35% 处时，
+   上一页的底部仍露在顶栏下方，会被误判为当前页，导致“下一页”反复跳回同一页。 */
 function getCurrentVisiblePage(){
   const topBarH = document.querySelector('.top-bar').offsetHeight;
+  const vh = window.innerHeight || document.documentElement.clientHeight;
   const pages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
     .filter(p => p.style.display !== 'none');
+  let best = null;
+  let bestVisible = 0;
+  for(const p of pages){
+    const r = p.getBoundingClientRect();
+    const top = Math.max(r.top, topBarH);
+    const bottom = Math.min(r.bottom, vh);
+    const visible = bottom - top;
+    if(visible > bestVisible){
+      bestVisible = visible;
+      best = p;
+    }
+  }
+  if(best) return best;
+  // 兜底：所有页面都不在视口内时，返回离视口最近的页面
   for(const p of pages){
     const r = p.getBoundingClientRect();
     if(r.bottom > topBarH + 10) return p;
   }
   return pages[0] || null;
+}
+
+/* 提交搜索会触发 render() 重建 DOM，滚动位置可能被重置。
+   所以在提交前先记下“当前可见页”（页号 + 序号），render 后再还原。 */
+let pendingSearchAnchor = null;
+function captureVisiblePageAnchor(){
+  const p = getCurrentVisiblePage();
+  if(!p) return null;
+  const pages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
+    .filter(x => x.style.display !== 'none');
+  return { pageNum: p.dataset.pageNum || '', index: pages.indexOf(p) };
+}
+function resolveVisiblePageAnchor(anchor){
+  if(!anchor) return null;
+  const pages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
+    .filter(x => x.style.display !== 'none');
+  if(anchor.pageNum){
+    const byNum = pages.find(p => p.dataset.pageNum === anchor.pageNum);
+    if(byNum) return byNum;
+  }
+  return pages[anchor.index] || null;
+}
+
+/* 从当前可见页开始，找到搜索导航的起始匹配下标
+   dir > 0：当前页或之后的第一处匹配
+   dir < 0：当前页或之前的最后一处匹配
+   找不到返回 -1 */
+function findSearchStartIndex(dir){
+  if(!matchCards.length) return -1;
+  const curPage = resolveVisiblePageAnchor(pendingSearchAnchor) || getCurrentVisiblePage();
+  if(!curPage) return dir > 0 ? 0 : matchCards.length - 1;
+
+  const pages = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
+    .filter(p => p.style.display !== 'none');
+  const curPos = pages.indexOf(curPage);
+  if(curPos < 0) return dir > 0 ? 0 : matchCards.length - 1;
+
+  if(dir > 0){
+    // 当前页 → 后面的页：取每页第一处匹配
+    for(let i = curPos; i < pages.length; i++){
+      const idx = matchCards.findIndex(m => pageOfMatch(m) === pages[i]);
+      if(idx >= 0) return idx;
+    }
+    return -1;
+  }
+
+  // 当前页 → 前面的页：取每页最后一处匹配
+  for(let i = curPos; i >= 0; i--){
+    for(let j = matchCards.length - 1; j >= 0; j--){
+      if(pageOfMatch(matchCards[j]) === pages[i]) return j;
+    }
+  }
+  return -1;
 }
 
 /* 只做视觉标记，不滚动 */
@@ -10848,6 +11550,189 @@ function getSubjectOfKey(key){
     }));
   }
 
+  /* ==================== 渲染快照：锁定后刷新不再重新解析源文件 ==================== */
+  /* 把当前已经渲染好的页面（文字层/文本行/图片尺寸）序列化，存进 IndexedDB。
+     PDF 只缓存文字层和页面尺寸，画布仍按需从原始 PDF 文件渲染。 */
+  function buildBookSnapshot(bookName){
+    const els = [...pdfList.querySelectorAll('.pdf-page, .txt-doc')]
+      .filter(el => el.dataset.book === bookName);
+    if(!els.length) return null;
+    const first = els[0];
+
+    if(first.classList.contains('txt-doc')){
+      return {
+        kind: 'text',
+        pages: els.map(el=>({
+          pageNum: el.dataset.pageNum || '',
+          kind: el.dataset.kind || 'text',
+          lines: [...el.querySelectorAll('.txt-line')].map(l=>l.textContent)
+        }))
+      };
+    }
+
+    if(first.classList.contains('img-doc')){
+      return {
+        kind: 'image',
+        pages: els.map(el=>({
+          pageNum: el.dataset.pageNum || '1',
+          width: el.style.width || '',
+          height: el.style.height || '',
+          pdfIndex: 0
+        }))
+      };
+    }
+
+    // PDF：记录每页文字层 HTML + 尺寸；pdfIndex 对应 bookPdfIds 中的顺序
+    const ids = [...(bookPdfIds.get(bookName) || [])];
+    return {
+      kind: 'pdf',
+      pages: els.map(el=>{
+        let idx = ids.indexOf(el.dataset.pdfId);
+        if(idx < 0) idx = 0;
+        const tl = el.querySelector('.text-layer');
+        return {
+          pageNum: el.dataset.pageNum,
+          scale: el.dataset.scale,
+          width: el.style.width,
+          height: el.style.height,
+          text: el.dataset.normText || '',
+          textHtml: tl ? tl.innerHTML : '',
+          pdfIndex: idx
+        };
+      })
+    };
+  }
+
+  /* 用快照直接重建页面，跳过源文件解析 */
+  function restoreBookFromSnapshot(bookName, snapshot, recFiles){
+    if(!snapshot || !Array.isArray(snapshot.pages) || !snapshot.pages.length) return false;
+    recFiles = Array.isArray(recFiles) ? recFiles : [];
+
+    // 先校验：PDF / 图片必须有可用的 blob，否则交给原来的重新导入流程
+    if(snapshot.kind === 'pdf'){
+      const need = new Set(snapshot.pages.map(p => p.pdfIndex || 0));
+      for(const idx of need){
+        const rf = recFiles[idx];
+        if(!rf || !rf.blob) return false;
+      }
+    }
+    if(snapshot.kind === 'image'){
+      const rf = recFiles[snapshot.pages[0].pdfIndex || 0];
+      if(!rf || !rf.blob) return false;
+    }
+    if(snapshot.kind !== 'pdf' && snapshot.kind !== 'text' && snapshot.kind !== 'image') return false;
+
+    if(!BOOKS.includes(bookName)) BOOKS.push(bookName);
+
+    // 登记文件键，保证之后还能继续锁定/更新缓存
+    recFiles.forEach((rf, i)=>{
+      if(!rf) return;
+      const key = (rf.fileName || ('file' + i)) + '::' + (rf.size || 0);
+      if(!bookFiles.has(bookName)) bookFiles.set(bookName, new Set());
+      bookFiles.get(bookName).add(key);
+      importedFiles.add(key);
+      if(rf.blob){
+        let f = rf.blob;
+        try{
+          f = new File([rf.blob], rf.fileName || ('file' + i), {
+            type: rf.type || rf.blob.type || '',
+            lastModified: rf.lastModified || Date.now()
+          });
+        }catch(e){}
+        importedFileObjects.set(key, f);
+      }
+      if(rf.handle) fileHandles.set(key, rf.handle);
+    });
+
+    if(snapshot.kind === 'text'){
+      snapshot.pages.forEach(pg=>{
+        const doc = document.createElement('div');
+        doc.className = 'txt-doc';
+        doc.dataset.book = bookName;
+        doc.dataset.kind = pg.kind || 'text';
+        doc.dataset.pageNum = pg.pageNum || '';
+        if(snapshot.pages.length > 1) doc.style.position = 'relative';
+        (pg.lines || []).forEach(line=>{
+          const div = document.createElement('div');
+          div.className = 'txt-line';
+          div.textContent = line || '\u00A0';
+          doc.appendChild(div);
+          searchSpans.push(div);
+        });
+        pdfList.appendChild(doc);
+      });
+    } else if(snapshot.kind === 'image'){
+      const rf = recFiles[snapshot.pages[0].pdfIndex || 0];
+      const url = URL.createObjectURL(rf.blob);
+      snapshot.pages.forEach(pg=>{
+        const pageDiv = document.createElement('div');
+        pageDiv.className = 'pdf-page img-doc';
+        pageDiv.dataset.book = bookName;
+        pageDiv.dataset.kind = 'image';
+        pageDiv.dataset.pageNum = pg.pageNum || '1';
+        if(pg.width) pageDiv.style.width = pg.width;
+        if(pg.height) pageDiv.style.height = pg.height;
+        const img = document.createElement('img');
+        img.alt = rf.fileName || '';
+        img.draggable = false;
+        img.src = url;
+        pageDiv.appendChild(img);
+        const tip = document.createElement('div');
+        tip.className = 'img-tip';
+        tip.textContent = '图片文档（不支持文字搜索）';
+        pageDiv.appendChild(tip);
+        pdfList.appendChild(pageDiv);
+      });
+    } else {
+      // PDF：按 pdfIndex 分组，每组对应一个原始 PDF 文件
+      const groups = new Map();
+      snapshot.pages.forEach(pg=>{
+        const idx = pg.pdfIndex || 0;
+        if(!groups.has(idx)) groups.set(idx, []);
+        groups.get(idx).push(pg);
+      });
+      groups.forEach((pages, idx)=>{
+        const rf = recFiles[idx];
+        const pdfId = 'pdf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+        pdfSourceBlobs.set(pdfId, rf.blob);
+        registerBookPdfId(bookName, pdfId);
+        pages.forEach(pg=>{
+          const pageDiv = document.createElement('div');
+          pageDiv.className = 'pdf-page';
+          pageDiv.dataset.pageNum = pg.pageNum;
+          pageDiv.dataset.scale = pg.scale;
+          pageDiv.dataset.book = bookName;
+          pageDiv.dataset.pdfId = pdfId;
+          pageDiv.dataset.rendered = '';
+          pageDiv.style.width = pg.width || '';
+          pageDiv.style.height = pg.height || '';
+          const canvas = document.createElement('canvas');
+          canvas.width = 1; canvas.height = 1;
+          canvas.style.width = pg.width || '';
+          canvas.style.height = pg.height || '';
+          canvas.style.background = '#fff';
+          pageDiv.appendChild(canvas);
+          const textLayer = document.createElement('div');
+          textLayer.className = 'text-layer';
+          textLayer.style.width = pg.width || '';
+          textLayer.style.height = pg.height || '';
+          if(pg.scale) textLayer.style.setProperty('--scale-factor', pg.scale);
+          textLayer.innerHTML = pg.textHtml || '';
+          pageDiv.appendChild(textLayer);
+          pageDiv.dataset.normText = pg.text || '';
+          textLayer.querySelectorAll('span').forEach(s => searchSpans.push(s));
+          pdfList.appendChild(pageDiv);
+        });
+      });
+    }
+
+    pdfPageCount = pdfList.querySelectorAll('.pdf-page').length;
+    const lazyObs = ensureLazyObserver();
+    pdfList.querySelectorAll('.pdf-page').forEach(d => lazyObs.observe(d));
+    updateZoomBtns();
+    return true;
+  }
+
   function deleteLockRecord(bookName){
     return openLockDB().then(db=>new Promise(resolve=>{
       const tx = db.transaction(LOCK_STORE, 'readwrite');
@@ -10890,43 +11775,54 @@ function getSubjectOfKey(key){
     });
     if(!metas.length) throw new Error('找不到原始文件，请重新导入后再锁定');
 
+    // 渲染快照：刷新/重开时直接重建页面，不再重新解析源文件
+    let snapshot = null;
+    try{ snapshot = buildBookSnapshot(bookName); }
+    catch(e){ console.warn('生成渲染快照失败，将只缓存源文件：', e); }
+
     const meta = {bookName, files: metas, lockedAt: Date.now()};
     lockedBooks.set(bookName, meta);
     persistLockedMeta();
 
-    try{
-      await saveLockRecord({bookName, files: recordFiles});
-      if(navigator.storage && navigator.storage.persist){
-        try{ navigator.storage.persist(); }catch(e){}
-      }
-      toast('已锁定「' + bookName + '」，下次打开会自动加载');
-      return true;
-    }catch(err){
-      console.warn('锁定缓存失败：', err);
-      // 有些浏览器不能把 FileSystemFileHandle 存进 IndexedDB，先退回只存文件内容
-      try{
-        const blobOnly = recordFiles.map(f=>({
-          fileName:f.fileName, size:f.size, lastModified:f.lastModified, type:f.type, blob:f.blob
-        }));
-        await saveLockRecord({bookName, files: blobOnly});
-        toast('已锁定「' + bookName + '」，下次打开会自动加载');
-        return true;
-      }catch(e2){}
-      // 文件内容也存不下时，如果所有文件都有路径句柄，至少保存句柄
-      const handlesOnly = recordFiles
-        .filter(f=>f.handle)
-        .map(f=>({fileName:f.fileName, size:f.size, lastModified:f.lastModified, type:f.type, handle:f.handle}));
-      if(handlesOnly.length === recordFiles.length){
-        try{
-          await saveLockRecord({bookName, files: handlesOnly});
-          toast('已锁定「' + bookName + '」，下次打开可能需要重新授权');
-          return true;
-        }catch(e3){}
-      }
-      lockedBooks.delete(bookName);
-      persistLockedMeta();
-      throw new Error('浏览器缓存空间不足，锁定失败');
+    const blobOnly = recordFiles.map(f=>({
+      fileName:f.fileName, size:f.size, lastModified:f.lastModified, type:f.type, blob:f.blob
+    }));
+    const handlesOnly = recordFiles
+      .filter(f=>f.handle)
+      .map(f=>({fileName:f.fileName, size:f.size, lastModified:f.lastModified, type:f.type, handle:f.handle}));
+
+    // 依次尝试：完整文件 + 快照 → 完整文件 → 仅内容 + 快照 → 仅内容 → 仅句柄 + 快照 → 仅句柄
+    const attempts = [
+      {files: recordFiles, snapshot},
+      {files: recordFiles},
+      {files: blobOnly, snapshot},
+      {files: blobOnly}
+    ];
+    if(handlesOnly.length === recordFiles.length){
+      attempts.push({files: handlesOnly, snapshot});
+      attempts.push({files: handlesOnly});
     }
+
+    let lastErr = null;
+    for(const a of attempts){
+      try{
+        const rec = {bookName, files: a.files};
+        if(a.snapshot) rec.snapshot = a.snapshot;
+        await saveLockRecord(rec);
+        if(navigator.storage && navigator.storage.persist){
+          try{ navigator.storage.persist(); }catch(e){}
+        }
+        const onlyHandles = (a.files === handlesOnly);
+        toast('已锁定「' + bookName + '」，下次打开' + (onlyHandles ? '可能需要重新授权' : '会自动加载'));
+        return true;
+      }catch(err){
+        lastErr = err;
+      }
+    }
+    console.warn('锁定缓存失败：', lastErr);
+    lockedBooks.delete(bookName);
+    persistLockedMeta();
+    throw new Error('浏览器缓存空间不足，锁定失败');
   }
 
   async function unlockBook(bookName){
@@ -10979,43 +11875,77 @@ function getSubjectOfKey(key){
     for(const meta of [...lockedBooks.values()]){
       const rec = byName.get(meta.bookName);
       let importedAny = false;
-      for(const fm of meta.files){
-        let file = null;
-        let handle = null;
-        const rf = rec && Array.isArray(rec.files)
-          ? rec.files.find(x=>x && x.fileName === fm.fileName && x.size === fm.size)
-          : null;
-        if(rf){
-          handle = rf.handle || null;
-          if(rf.blob){
-            try{
-              file = new File([rf.blob], fm.fileName, {
-                type: fm.type || rf.blob.type || '',
-                lastModified: fm.lastModified || Date.now()
-              });
-            }catch(e){ file = rf.blob; }
-          }
-        }
-        if(!file && handle) file = await fileFromHandle(handle);
-        if(!file) continue;
 
+      // 优先使用渲染快照：直接重建页面，不再解析源文件
+      if(rec && rec.snapshot){
         try{
-          const gotName = await handleImport(file, handle, {restoring:true});
-          if(gotName){
+          if(restoreBookFromSnapshot(meta.bookName, rec.snapshot, rec.files || [])){
             importedAny = true;
-            if(gotName !== meta.bookName){
-              const oldName = meta.bookName;
-              const migrated = Object.assign({}, meta, {bookName: gotName});
-              lockedBooks.delete(oldName);
-              lockedBooks.set(gotName, migrated);
-              persistLockedMeta();
-              try{ await saveLockRecord({bookName: gotName, files: rec ? rec.files : []}); }catch(e){}
-              deleteLockRecord(oldName);
-              meta.bookName = gotName;
-            }
           }
         }catch(e){
-          console.warn('恢复锁定教材失败：', e);
+          console.warn('快照恢复失败，回退重新导入：', e);
+          // 清理可能已经插入一半的页面与登记信息
+          pdfList.querySelectorAll('.pdf-page, .txt-doc').forEach(el=>{
+            if(el.dataset.book === meta.bookName) disposePageEl(el);
+          });
+          for(let i = searchSpans.length - 1; i >= 0; i--){
+            if(!searchSpans[i].isConnected) searchSpans.splice(i, 1);
+          }
+          const ids = bookPdfIds.get(meta.bookName);
+          if(ids){ ids.forEach(id=>pdfSourceBlobs.delete(id)); bookPdfIds.delete(meta.bookName); }
+          const keys = bookFiles.get(meta.bookName);
+          if(keys){
+            keys.forEach(k=>{
+              importedFiles.delete(k);
+              importedFileObjects.delete(k);
+              fileHandles.delete(k);
+            });
+            bookFiles.delete(meta.bookName);
+          }
+          BOOKS = BOOKS.filter(b=>b !== meta.bookName);
+          importedAny = false;
+        }
+      }
+
+      if(!importedAny){
+        for(const fm of meta.files){
+          let file = null;
+          let handle = null;
+          const rf = rec && Array.isArray(rec.files)
+            ? rec.files.find(x=>x && x.fileName === fm.fileName && x.size === fm.size)
+            : null;
+          if(rf){
+            handle = rf.handle || null;
+            if(rf.blob){
+              try{
+                file = new File([rf.blob], fm.fileName, {
+                  type: fm.type || rf.blob.type || '',
+                  lastModified: fm.lastModified || Date.now()
+                });
+              }catch(e){ file = rf.blob; }
+            }
+          }
+          if(!file && handle) file = await fileFromHandle(handle);
+          if(!file) continue;
+
+          try{
+            const gotName = await handleImport(file, handle, {restoring:true});
+            if(gotName){
+              importedAny = true;
+              if(gotName !== meta.bookName){
+                const oldName = meta.bookName;
+                const migrated = Object.assign({}, meta, {bookName: gotName});
+                lockedBooks.delete(oldName);
+                lockedBooks.set(gotName, migrated);
+                persistLockedMeta();
+                try{ await saveLockRecord({bookName: gotName, files: rec ? rec.files : [], snapshot: rec ? rec.snapshot : undefined}); }catch(e){}
+                deleteLockRecord(oldName);
+                meta.bookName = gotName;
+              }
+            }
+          }catch(e){
+            console.warn('恢复锁定教材失败：', e);
+          }
         }
       }
       if(importedAny) restored++;
@@ -11029,6 +11959,7 @@ function getSubjectOfKey(key){
       toast('已自动恢复 ' + restored + ' 个锁定教材', 2400);
     }
     try{ buildChips(); }catch(e){}
+    try{ updateFileStatus(); }catch(e){}
     try{ render(); }catch(e){}
   }
 
@@ -11112,6 +12043,8 @@ function getSubjectOfKey(key){
         const pdf = pdfStore.get(id);
         if(pdf){ try{ pdf.destroy(); }catch(e){} }
         pdfStore.delete(id);
+        pdfSourceBlobs.delete(id);
+        pdfLoadPromises.delete(id);
       });
       bookPdfIds.delete(bookName);
     }
@@ -11190,58 +12123,101 @@ function getSubjectOfKey(key){
     }
     fileInput.click();
   });
-  /* ---- 清除导入 ---- */
+  /* ---- 清除导入（锁定的教材保留） ---- */
   const clearBtn = document.getElementById('clearBtn');
   if(clearBtn){
     clearBtn.addEventListener('click', ()=>{
       if(!importedFiles.size){
         return;   // 没有内容，不提示
       }
-      if(!confirm('确定清除所有导入的文件？此操作不可恢复。')) return;
-      // 1. 销毁所有 PDF 对象
-      pdfStore.forEach(pdf=>{
-        try{ pdf.destroy(); }catch(e){}
-      });
-      pdfStore.clear();
-      bookPdfIds.clear();
+      if(!confirm('确定清除所有导入的文件？锁定的教材会保留。')) return;
 
-      // 2. 清空 DOM（先释放 canvas / 图片）
-      pdfList.querySelectorAll('.pdf-page, .txt-doc').forEach(disposePageEl);
-      pdfList.innerHTML = '';
+      const lockedNames = new Set(lockedBooks.keys());
+      const lockedKeys = new Set();
+      lockedNames.forEach(name=>{
+        const ks = bookFiles.get(name);
+        if(ks) ks.forEach(k=>lockedKeys.add(k));
+      });
+
+      // 1. 只销毁非锁定教材的 PDF 对象
+      [...bookPdfIds.entries()].forEach(([bookName, ids])=>{
+        if(lockedNames.has(bookName)) return;
+        ids.forEach(id=>{
+          const pdf = pdfStore.get(id);
+          if(pdf){ try{ pdf.destroy(); }catch(e){} }
+          pdfStore.delete(id);
+          pdfSourceBlobs.delete(id);
+          pdfLoadPromises.delete(id);
+        });
+        bookPdfIds.delete(bookName);
+      });
+
+      // 2. 只移除非锁定教材的 DOM（锁定教材的页面原样保留）
+      pdfList.querySelectorAll('.pdf-page, .txt-doc').forEach(el=>{
+        if(!lockedNames.has(el.dataset.book)) disposePageEl(el);
+      });
       listEl.innerHTML = '';
 
-      // 3. 清空状态
-      searchSpans.length = 0;
-      matchCards = [];
+      // 3. 清空非锁定教材的文件记录；锁定教材的原始文件继续保留，方便下次缓存
+      [...bookFiles.entries()].forEach(([bookName, keys])=>{
+        if(lockedNames.has(bookName)) return;
+        keys.forEach(k=>{
+          importedFiles.delete(k);
+          importedFileObjects.delete(k);
+          fileHandles.delete(k);
+        });
+        bookFiles.delete(bookName);
+      });
+      [...importedFiles].forEach(k=>{
+        if(lockedKeys.has(k)) return;
+        importedFiles.delete(k);
+        importedFileObjects.delete(k);
+        fileHandles.delete(k);
+      });
+
+      // 4. 清理失效的搜索片段
+      for(let i = searchSpans.length - 1; i >= 0; i--){
+        if(!searchSpans[i].isConnected) searchSpans.splice(i, 1);
+      }
+
+      // 5. 清理状态（锁定教材的匹配/页码保留）
+      matchCards = matchCards.filter(m=>{
+        const el = (m && m.anchorEl) || m;
+        return el && el.isConnected;
+      });
       matchIndex = -1;
-      importedFiles.clear();
-      bookFiles.clear();
-      importedFileObjects.clear();
-      fileHandles.clear();
-      clearAllLocks();
+      for(const name of [...lastPosition.book.keys()]){
+        if(name !== '__ALL__' && !lockedNames.has(name)) lastPosition.book.delete(name);
+      }
       importCounter = 0;
-      pdfPageCount = 0;
+      pdfPageCount = pdfList.querySelectorAll('.pdf-page').length;
       pdfZoom = 1;
       if(pdfList) pdfList.style.zoom = 1;
 
-      // 4. 恢复 chips
+      // 6. 恢复 chips（保留锁定教材）
       BOOKS = ['全部', '数学∙手册', '物理∙手册', '化学∙手册', '生物∙手册', '地理∙手册'];
-      currentBooks.clear();
+      lockedNames.forEach(name=>{ if(!BOOKS.includes(name)) BOOKS.push(name); });
+      for(const name of [...currentBooks]){
+        if(!lockedNames.has(name)) currentBooks.delete(name);
+      }
       showEquations = false;
       eqSubject = '';
       buildChips();
 
-      // 5. 恢复搜索条件（草稿也要清）
+      // 7. 恢复搜索条件（草稿也要清）
       conditions = [''];
       condLogic = [];
       draftConditions = [''];
       draftCondLogic = [];
       renderCondArea();
 
-      // 6. 恢复 UI
+      // 8. 恢复 UI
       updateFileStatus();
       updateZoomBtns();
       render();
+      if(lockedNames.size){
+        toast('已清除导入，保留了 ' + lockedNames.size + ' 个锁定教材', 2600);
+      }
     });
   }
   /* 页面离开时释放所有 PDF 内存 */
@@ -11540,6 +12516,7 @@ document.addEventListener('touchcancel', ()=>{
     const containerWidth = Math.min(window.innerWidth - 16, 900);
     const pdfId = 'pdf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
     pdfStore.set(pdfId, pdf);
+    pdfSourceBlobs.set(pdfId, file);
     registerBookPdfId(bookName, pdfId);
     // 若 PDF 总数过多，释放最早的一个（防止内存累积）
     if(pdfStore.size > 6){
@@ -11550,7 +12527,7 @@ document.addEventListener('touchcancel', ()=>{
     const newPageDivs = [];
 
 	// 阶段一：并行建立骨架 + 文本层
-	const CONCURRENCY = 4;   // 一次并发处理 4 页
+	const CONCURRENCY = DEVICE.isMobile ? 2 : 4;   // 平板/手机降低并发，避免内存峰值
 	const pageOrder = [];
 	for(let p=1; p<=pdf.numPages; p++) pageOrder.push(p);
 
@@ -11633,6 +12610,9 @@ document.addEventListener('touchcancel', ()=>{
 	      delete pageOrder._results[p];
 	    }
 	  });
+
+	  // 每批之后让出主线程：平板上导入多个大 PDF 时界面仍可响应
+	  await new Promise(r => setTimeout(r, 0));
 	}
 
 	pdfPageCount = pdfList.querySelectorAll('.pdf-page').length;
