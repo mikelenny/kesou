@@ -13,10 +13,22 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-# 端口占用则自动 +1
-while lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; do
-  PORT=$((PORT + 1))
-done
+# 关键：浏览器缓存 / 锁定教材按「协议 + 域名 + 端口」隔离。
+# 如果旧服务还在运行，直接复用它，绝不要换端口，否则锁定缓存会“消失”。
+if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  if curl -fsS --max-time 2 "http://localhost:${PORT}/%E5%8F%AF%E6%90%9C.html" >/dev/null 2>&1; then
+    echo "────────────────────────────────────────────"
+    echo "  可搜 已在运行：http://localhost:${PORT}/可搜.html"
+    echo "  直接打开这个地址即可（保持端口不变，锁定缓存才不会丢）"
+    echo "────────────────────────────────────────────"
+    open "http://localhost:${PORT}/%E5%8F%AF%E6%90%9C.html" 2>/dev/null
+    exit 0
+  fi
+  # 端口被其它程序占用才 +1
+  while lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; do
+    PORT=$((PORT + 1))
+  done
+fi
 
 URL="http://localhost:${PORT}/%E5%8F%AF%E6%90%9C.html"
 

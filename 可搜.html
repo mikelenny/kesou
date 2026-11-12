@@ -366,6 +366,9 @@ mark {
   background:#fff;
   box-shadow:0 2px 12px rgba(15,23,42,.08);
   overflow:hidden;
+  /* 视口外的页面跳过布局/绘制：导入几百页时不再卡死 */
+  content-visibility:auto;
+  contain-intrinsic-size:auto 900px;
 }
 .pdf-page canvas{ display:block; }
 
@@ -406,6 +409,8 @@ mark {
   border:1px solid #e2e8f0;
   white-space:pre-wrap;
   word-break:break-word;
+  content-visibility:auto;
+  contain-intrinsic-size:auto 700px;
 }
 .txt-line{ display:block; padding:1px 0; border-radius:3px; }
 .txt-line.hit{ background:rgba(253,230,138,.35); box-shadow:inset 0 -3px 0 rgba(245,158,11,.85); }
@@ -8114,6 +8119,68 @@ function scheduleSharpUpgrade(div){
   });
 }
 
+/* ==================== 文本层懒创建 ====================
+   导入/恢复时只记录每页文字（用于搜索预筛），不立即生成成百上千个
+   span。等页面接近视口或真正需要搜索时再建文本层，避免导入两本
+   教科书就把 Chrome 卡死。 */
+async function ensurePageTextLayer(pageEl){
+  if(!pageEl || pageEl.dataset.textReady === '1') return true;
+  if(pageEl.dataset.kind === 'image') return false;
+  if(!pageEl.classList || !pageEl.classList.contains('pdf-page')) return false;
+  if(pageEl._textLayerPromise) return pageEl._textLayerPromise;
+
+  pageEl._textLayerPromise = (async ()=>{
+    const textLayer = pageEl.querySelector('.text-layer');
+    if(!textLayer) return false;
+    try{
+      if(pageEl._pendingTextHtml != null){
+        // 锁定快照恢复：直接注入已经保存好的文本层 HTML
+        textLayer.innerHTML = pageEl._pendingTextHtml;
+        pageEl._pendingTextHtml = null;
+      } else {
+        // 普通导入：按需从 PDF 提取文字并建立文本层
+        const pdf = await ensurePdfForId(pageEl.dataset.pdfId);
+        if(!pdf) return false;
+        await ensurePdfJs();
+        if(typeof pdfjsLib === 'undefined') return false;
+        const p = parseInt(pageEl.dataset.pageNum, 10);
+        if(!p || isNaN(p)) return false;
+        const page = await pdf.getPage(p);
+        const tc = await page.getTextContent();
+        if(tc && tc.items){
+          for(const it of tc.items){
+            if(it && typeof it.str === 'string') it.str = cleanLatex(it.str);
+          }
+        }
+        const scale = parseFloat(pageEl.dataset.scale) || 1;
+        const viewport = page.getViewport({scale});
+        await pdfjsLib.renderTextLayer({
+          textContentSource: tc,
+          container: textLayer,
+          viewport: viewport,
+          textDivs: []
+        }).promise;
+      }
+      textLayer.querySelectorAll('span').forEach(s => searchSpans.push(s));
+      pageEl.dataset.textReady = '1';
+      return true;
+    }catch(e){
+      console.warn('文本层创建失败', pageEl.dataset.book, pageEl.dataset.pageNum, e);
+      return false;
+    }finally{
+      pageEl._textLayerPromise = null;
+    }
+  })();
+  return pageEl._textLayerPromise;
+}
+
+/* 判断页面是否还没有可用的文字（用于搜索前补建文本层） */
+function pageNeedsTextLayer(pageEl){
+  return !!(pageEl && pageEl.classList && pageEl.classList.contains('pdf-page')
+    && pageEl.dataset.kind !== 'image'
+    && pageEl.dataset.textReady !== '1');
+}
+
 /* ==================== 懒渲染（全局单例 + 预渲染相邻页） ==================== */
 function ensureLazyObserver(){
   if(pdfLazyObserver) return pdfLazyObserver;
@@ -8131,6 +8198,8 @@ function ensureLazyObserver(){
 
     for(const entry of list){
       const div = entry.target;
+      // 文本层按需建立（不阻塞画布渲染）
+      if(pageNeedsTextLayer(div)) ensurePageTextLayer(div);
       if(div.dataset.rendered === '1' || div.dataset.rendering === '1') continue;
       div.dataset.rendering = '1';
       const pdf = await ensurePdfForId(div.dataset.pdfId);
@@ -8192,8 +8261,10 @@ function preRenderAdjacent(div, delta){
     `.pdf-page[data-pdf-id="${pdfId}"][data-page-num="${num}"]`
   );
   if(!next) return;
+  if(next.style.display === 'none') return;
   if(next.dataset.rendered === '1' || next.dataset.rendering === '1') return;
   next.dataset.rendering = '1';
+  if(pageNeedsTextLayer(next)) ensurePageTextLayer(next);
   const scale = parseFloat(next.dataset.scale);
   // 使用 setTimeout(0) 让主线程先完成当前工作
   setTimeout(async ()=>{
@@ -8230,11 +8301,13 @@ function renderVisiblePages(){
   const vh = window.innerHeight;
   const vw = window.innerWidth;
   pages.forEach(p=>{
+    if(p.style.display === 'none') return;   // 隐藏教材不预渲染
     if(p.dataset.rendered === '1' || p.dataset.rendering === '1') return;
     const r = p.getBoundingClientRect();
     if(r.top < vh + DEVICE.fallbackMargin && r.bottom > -DEVICE.fallbackMargin){
       p.dataset.rendering = '1';
       p.dataset.renderedVisible = '1';   // ★ 记录：渲染时容器是可见的
+      if(pageNeedsTextLayer(p)) ensurePageTextLayer(p);
       const num = parseInt(p.dataset.pageNum, 10);
       const scale = parseFloat(p.dataset.scale);
 
@@ -8280,6 +8353,7 @@ function upgradeVisiblePages(){
   if(!DEVICE.enableSharp) return;
   const vh = window.innerHeight;
   pdfList.querySelectorAll('.pdf-page').forEach(p=>{
+    if(p.style.display === 'none') return;
     if(p.dataset.rendered !== '1') return;   // 还没快速渲染，交给 renderVisiblePages
     if(p.dataset.sharp === '1') return;      // 已经是高清
     if(p.dataset.rendering === '1') return;  // 正在渲染中
@@ -8292,23 +8366,40 @@ function upgradeVisiblePages(){
 }
 
 
-/* 释放远处页面的 canvas 数据（保留占位尺寸） */
+/* 释放远处页面的 canvas / 文本层数据（保留占位尺寸） */
 function releaseFarCanvas(){
+  if(!pdfList) return;
   const vh = window.innerHeight;
+  // 有关键词时保留文本层，避免搜索高亮元素被释放
+  const canReleaseText = getConditionGroups().length === 0;
+  let clearedText = 0;
   pdfList.querySelectorAll('.pdf-page').forEach(p=>{
-    if(p.dataset.rendered !== '1') return;
     const r = p.getBoundingClientRect();
-    // 距视口 4000px 以上，释放
-    if(r.bottom < -DEVICE.releaseDist || r.top > vh + DEVICE.releaseDist){
+    const far = (r.bottom < -DEVICE.releaseDist || r.top > vh + DEVICE.releaseDist);
+    if(!far) return;
+    if(p.dataset.rendered === '1'){
       const canvas = p.querySelector('canvas');
       if(canvas && canvas.width > 1){
         canvas.width = 1;
         canvas.height = 1;
-        p.dataset.rendered = '';
-        p.dataset.sharp = '0';
+      }
+      p.dataset.rendered = '';
+      p.dataset.sharp = '0';
+    }
+    if(canReleaseText && p.dataset.textReady === '1'){
+      const tl = p.querySelector('.text-layer');
+      if(tl && tl.childNodes.length){
+        tl.innerHTML = '';
+        p.dataset.textReady = '';
+        clearedText++;
       }
     }
   });
+  if(clearedText){
+    for(let i = searchSpans.length - 1; i >= 0; i--){
+      if(!searchSpans[i].isConnected) searchSpans.splice(i, 1);
+    }
+  }
 }
 
 /* 滚动时兜底补渲染（节流 200ms，避免频繁触发）
@@ -8992,7 +9083,14 @@ function textHasKeyword(text, needle, strict, rawText, normMap){
    - cl*  : cl 后面至少有 1 个字符；
    - cl?  : cl 后面恰好 1 个字符，再往后必须是边界。
    v.leftRun / v.rightRun 为紧邻字面片段的通配符串（如 "*"、"?"、"*?"）。 */
-function wildcardOccurrenceOk(v, text, start, end){
+function wildcardBoundaryOk(text, normIndex, mode, rawText, normMap){
+  if(rawText && normMap && normIndex >= 0 && normIndex < normMap.length){
+    const r = normMap[normIndex];
+    return formulaBoundaryOkRawMode(rawText, r, r + 1, mode);
+  }
+  return formulaBoundaryOkRawMode(text, normIndex, normIndex + 1, mode);
+}
+function wildcardOccurrenceOk(v, text, start, end, rawText, normMap){
   if(!v) return true;
   const L = text.length;
   const leftRun = v.leftRun || '';
@@ -9001,7 +9099,7 @@ function wildcardOccurrenceOk(v, text, start, end){
     if(start < k) return false;
     if(leftRun.indexOf('*') < 0){          // 纯 ?：必须从边界开始
       const b = start - k;
-      if(!formulaBoundaryOkRawMode(text, b, b + 1, 'left')) return false;
+      if(!wildcardBoundaryOk(text, b, 'left', rawText, normMap)) return false;
     }
   }
   const rightRun = v.rightRun || '';
@@ -9010,7 +9108,7 @@ function wildcardOccurrenceOk(v, text, start, end){
     if(end + k > L) return false;
     if(rightRun.indexOf('*') < 0){         // 纯 ?：必须在边界结束
       const b = end + k;
-      if(!formulaBoundaryOkRawMode(text, b - 1, b, 'right')) return false;
+      if(!wildcardBoundaryOk(text, b - 1, 'right', rawText, normMap)) return false;
     }
   }
   return true;
@@ -9045,7 +9143,7 @@ function countKeywordHits(text, variants, rawText, normMap){
     let pos = 0;
     while((pos = scratch.indexOf(needle, pos)) !== -1){
       if(formulaBoundaryOkMappedMode(scratch, needle, pos, rawText, normMap, mode) &&
-         wildcardOccurrenceOk(v, text, pos, pos + needle.length)){
+         wildcardOccurrenceOk(v, text, pos, pos + needle.length, rawText, normMap)){
         hits++;
         scratch = scratch.slice(0, pos) + '\u0000'.repeat(needle.length) + scratch.slice(pos + needle.length);
         pos += needle.length;
@@ -9178,7 +9276,7 @@ function wildcardOccurrences(rawText, gm){
     let ok = true;
     if(gm.leftStrict && !formulaBoundaryOkRawMode(src, startRaw, endRaw, 'left')) ok = false;
     if(ok && gm.rightStrict && !formulaBoundaryOkRawMode(src, startRaw, endRaw, 'right')) ok = false;
-    if(ok && !wildcardOccurrenceOk(occ, norm, literalStart, literalEnd)) ok = false;
+    if(ok && !wildcardOccurrenceOk(occ, norm, literalStart, literalEnd, src, w.normMap)) ok = false;
     if(ok){
       out.push({ start, end });
     } else {
@@ -9792,6 +9890,7 @@ function bookOrderOf(key){
 }
 
 function renderManual(){
+  cancelPdfSearch();   // 切到卡片视图：作废还在跑的 PDF 搜索
   listEl.innerHTML = '';
   const subject = eqSubject;
   const entries = getHighlightEntries();
@@ -9899,6 +9998,7 @@ function renderManual(){
 /* ==================== "全部"视图：教材优先 + 公式在后 ==================== */
 /* ==================== "全部"视图：教材优先 + 公式在后 ==================== */
 function renderAll(){
+  cancelPdfSearch();   // 切到卡片视图：作废还在跑的 PDF 搜索
   listEl.innerHTML = '';
   matchCards = [];
   matchIndex = -1;
@@ -9924,7 +10024,10 @@ function renderAll(){
       let searchText = pageEl.__searchText;
       if(!searchText){
         const tl = pageEl.querySelector('.text-layer');
-        const raw = tl ? (tl.textContent || '') : (pageEl.textContent || '');
+        // 文本层可能是懒创建、尚未生成：优先用导入时保存的纯文本索引
+        let raw = tl ? (tl.textContent || '') : '';
+        if(!raw) raw = pageEl.__rawText || '';
+        if(!raw) raw = pageEl.textContent || '';
         searchText = buildNormWithMap(raw);
         pageEl.__searchText = searchText;
         pageEl.dataset.normText = searchText.norm;
@@ -10290,49 +10393,58 @@ function render(){
   }
 
   setViewMode('pdf');
-  highlightPdfMatches();
+  const capturedSuppress = suppressAutoJump;
+  const capturedSkipRestore = skipRestoreOnNextRender;
+  // ★ 关键：根据「有无关键词 + 有无历史位置」决定默认跳转
+  const bookName = currentBooks.size === 1 ? [...currentBooks][0] : '';
+  const prevBook = bookName ? lastPosition.book.get(bookName) : null;
+
+  let finished = false;
+  const finish = ()=>{
+    if(finished) return;
+    finished = true;
+
+    // 1) 有历史位置 → 只恢复高亮/滚动位置，不做额外跳转
+    if(!capturedSkipRestore && prevBook && (prevBook.matchEl || prevBook.pageEl)){
+      restoreBookPosition(bookName, prevBook);
+      return;
+    }
+
+    // 2) 无历史位置：
+    if(hasKw){
+      if(matchCards.length > 0){
+        if(capturedSuppress){
+          // 刚提交搜索：highlightPdfMatches 已按“当前可见页”算好起点，保留它，
+          // 这样在第 5 页再次搜索会从第 5 页往下，而不是跳回第 1 页。
+          if(matchIndex < 0 || matchIndex >= matchCards.length){
+            matchIndex = findSearchStartIndex(1);
+          }
+          if(matchIndex < 0) matchIndex = 0;
+          highlightCardNoScroll();   // 只标记不滚动，由 handleNav 决定最终跳到哪
+        } else {
+          matchIndex = 0;
+          highlightCard();
+        }
+        if(bookName) saveBookPosition(bookName);
+      } else {
+        updateNavBtns();
+      }
+    } else {
+      // 无关键字 → 不改变滚动位置，只更新计数
+      matchIndex = -1;
+      if(bookName) saveBookPosition(bookName);
+      updateNavBtns();
+    }
+    updateNavBtns();
+  };
+
+  // 文本层按需补建时是异步的；完成后通过 finish 继续原来的定位逻辑
+  highlightPdfMatches(finish);
   // ★ 新增：显示后再补一次渲染，防止 observer 延迟
   setTimeout(()=>{
     renderVisiblePages();
     upgradeVisiblePages();
   }, 60);
-  
-  // ★ 关键：根据「有无关键词 + 有无历史位置」决定默认跳转
-  const bookName = currentBooks.size === 1 ? [...currentBooks][0] : '';
-  const prevBook = bookName ? lastPosition.book.get(bookName) : null;
-
-  // 1) 有历史位置 → 只恢复高亮/滚动位置，不做额外跳转
-  if(!skipRestoreOnNextRender && prevBook && (prevBook.matchEl || prevBook.pageEl)){
-    restoreBookPosition(bookName, prevBook);
-    return;
-  }
-
-  // 2) 无历史位置：
-  if(hasKw){
-    if(matchCards.length > 0){
-      if(suppressAutoJump){
-        // 刚提交搜索：highlightPdfMatches 已按“当前可见页”算好起点，保留它，
-        // 这样在第 5 页再次搜索会从第 5 页往下，而不是跳回第 1 页。
-        if(matchIndex < 0 || matchIndex >= matchCards.length){
-          matchIndex = findSearchStartIndex(1);
-        }
-        if(matchIndex < 0) matchIndex = 0;
-        highlightCardNoScroll();   // 只标记不滚动，由 handleNav 决定最终跳到哪
-      } else {
-        matchIndex = 0;
-        highlightCard();
-      }
-      if(bookName) saveBookPosition(bookName);
-    } else {
-      updateNavBtns();
-    }
-} else {
-  // 无关键字 → 不改变滚动位置，只更新计数
-  matchIndex = -1;
-  if(bookName) saveBookPosition(bookName);
-  updateNavBtns();
-}
-  updateNavBtns();
 }
 
 /* ---------- PDF / TXT 搜索高亮（精确关键词高亮 + 多色 + 页级过滤） ---------- */
@@ -10342,7 +10454,60 @@ function normalizeForMatch(s){
   return s.toLowerCase().replace(/[\s\u3000]+/g, '');
 }
 
-function highlightPdfMatches(){
+/* ---------- 搜索完成信号 ----------
+   高亮是分批异步生成的。用户按 Enter / ↑ / ↓ 时如果搜索还没算完，
+   直接读 matchCards 会得到空数组，导致“第一次按回车没反应”。
+   这里用 Promise 记录当前搜索，导航回调会自动等最新一次搜索结束。 */
+let searchPromise = Promise.resolve();
+let resolveSearchDone = null;
+let searchRunning = false;
+
+function beginSearch(){
+  // 结束上一次尚未完成的搜索；等待它的回调会自动改等这一次
+  if(resolveSearchDone){ const r = resolveSearchDone; resolveSearchDone = null; r(); }
+  let resolveFn;
+  const p = new Promise(res => { resolveFn = res; });
+  searchPromise = p;
+  resolveSearchDone = resolveFn;
+  searchRunning = true;
+  return p;
+}
+function finishSearch(p){
+  if(p && searchPromise !== p) return;   // 已被新搜索接管
+  searchRunning = false;
+  if(resolveSearchDone){ const r = resolveSearchDone; resolveSearchDone = null; r(); }
+}
+/* 作废正在进行的 PDF 搜索（切到卡片/手册视图时用） */
+function cancelPdfSearch(){
+  highlightPdfMatches.__token = (highlightPdfMatches.__token || 0) + 1;
+  finishSearch();
+}
+/* 等当前搜索结束（如果期间又开始了新搜索，则继续等最新的那次） */
+function afterSearchSettled(fn){
+  const wait = ()=>{
+    const p = searchPromise;
+    p.then(()=>{
+      if(searchPromise !== p) wait();
+      else fn();
+    });
+  };
+  wait();
+}
+
+function highlightPdfMatches(onDone){
+  onDone = (typeof onDone === 'function') ? onDone : function(){};
+  // 每次搜索/重绘都作废上一次尚未完成的懒文本层准备
+  const token = (highlightPdfMatches.__token || 0) + 1;
+  highlightPdfMatches.__token = token;
+  // 搜索完成信号：Enter / ↑ / ↓ 等导航可以等搜索真正算完再跳
+  const myPromise = beginSearch();
+  let searchSettled = false;
+  const done = ()=>{
+    if(searchSettled) return;
+    searchSettled = true;
+    finishSearch(myPromise);
+    onDone();
+  };
   // 清空旧 overlay
   pdfList.querySelectorAll('.hl-overlay').forEach(o=>o.remove());
   document.querySelectorAll('.hl-rect.active-hit').forEach(e=>e.classList.remove('active-hit'));
@@ -10369,6 +10534,7 @@ function highlightPdfMatches(){
     countEl.textContent = '';
     hintEl.textContent = SEARCH_HINT;
     updateNavBtns();
+    done();
     return;
   }
 
@@ -10384,16 +10550,21 @@ function highlightPdfMatches(){
     if(!gm.variants.length) canQuickFilter = false;
     gm.variants.forEach(v => { if(v && v.word) flatVariants.push(v); });
   });
+
+  const candidates = [];
   pageContainers.forEach(pageEl=>{
     if(pageEl.style.display === 'none') return;
 
-	let pageText = pageEl.dataset.normText;
-	if(!pageText){
-	  const tl = pageEl.querySelector('.text-layer');
-	  const raw = tl ? (tl.textContent || '') : (pageEl.textContent || '');
-	  pageText = normalizeForMatch(raw);
-	  pageEl.dataset.normText = pageText;
-	}
+    let pageText = pageEl.dataset.normText;
+    if(!pageText){
+      const tl = pageEl.querySelector('.text-layer');
+      // 文本层可能尚未懒创建：优先用导入/恢复时保存的纯文本索引
+      let raw = tl ? (tl.textContent || '') : '';
+      if(!raw) raw = pageEl.__rawText || '';
+      if(!raw) raw = pageEl.textContent || '';
+      pageText = normalizeForMatch(raw);
+      pageEl.dataset.normText = pageText;
+    }
     if(pageText && canQuickFilter){
       // 该页不含任何正向字面变体 → 直接跳过（快速路径）
       // 这里只做宽松的 includes 预筛，必须保证是真正匹配的超集：
@@ -10401,21 +10572,83 @@ function highlightPdfMatches(){
       const anyHit = flatVariants.some(v => pageText.includes(v.word));
       if(!anyHit) return;
     }
-    processPageForSearch(pageEl, groupMatchers);
+
+    // 精确页级预判：用纯文本索引判断，避免给“看起来包含、实际不命中”的页
+    // 创建文本层（例如普通 cl 不应匹配 NaCl，但 includes 预筛会放行）
+    if(pageEl.classList.contains('pdf-page')){
+      let st = pageEl.__searchText;
+      if(!st){
+        const raw = pageEl.__rawText || '';
+        if(raw){
+          st = buildNormWithMap(raw);
+          pageEl.__searchText = st;
+          pageEl.dataset.normText = st.norm;
+        }
+      }
+      if(st && st.norm){
+        const hits = groupMatchers.map(gm =>
+          groupMatchesText(gm, st.norm, st.raw, st.normMap)
+        );
+        if(!evalGroupHits(hits, plan.ops)) return;
+      } else if(!pageEl._pendingTextHtml){
+        // 没有文字索引（纯扫描页）→ 不可能有文字匹配
+        return;
+      }
+    }
+    candidates.push(pageEl);
   });
 
-  // 换关键词时：优先定位到"当前页或之后"的第一个匹配（视觉标记，不滚动）
-  if(matchCards.length){
-    const idx = findSearchStartIndex(1);
-    if(idx >= 0){
-      matchIndex = idx;
-      highlightCardNoScroll();
+  const finalize = async ()=>{
+    // 分批给页面建高亮：一次处理几百页会产生 5 秒以上的长任务，
+    // 分块 + 让出主线程后，Chrome 在搜索期间仍然可以响应滚动和输入。
+    for(let i=0; i<candidates.length; i+=6){
+      if(highlightPdfMatches.__token !== token) return;
+      for(const pageEl of candidates.slice(i, i+6)){
+        processPageForSearch(pageEl, groupMatchers);
+      }
+      await new Promise(r => setTimeout(r, 0));
     }
+    if(highlightPdfMatches.__token !== token) return;
+
+    // 换关键词时：优先定位到"当前页或之后"的第一个匹配（视觉标记，不滚动）
+    if(matchCards.length){
+      const idx = findSearchStartIndex(1);
+      if(idx >= 0){
+        matchIndex = idx;
+        highlightCardNoScroll();
+      }
+    }
+
+    countEl.textContent = `匹配${matchCards.length}个`;
+    hintEl.textContent = SEARCH_HINT;
+    updateNavBtns();
+    done();
+  };
+
+  // 懒文本层：只给通过预筛的候选页补建，分批让出主线程，避免搜索时卡死
+  countEl.textContent = '搜索中…';
+  const pending = candidates.filter(pageNeedsTextLayer);
+  if(!pending.length){
+    finalize().catch(e=>{ console.warn('搜索失败：', e); done(); });
+    return;
   }
 
-  countEl.textContent = `匹配${matchCards.length}个`;
-  hintEl.textContent = SEARCH_HINT;
-  updateNavBtns();
+  (async ()=>{
+    try{
+      for(let i=0; i<pending.length; i+=6){
+        await Promise.all(pending.slice(i, i+6).map(el => ensurePageTextLayer(el)));
+        if(highlightPdfMatches.__token !== token) return;
+        await new Promise(r => setTimeout(r, 0));
+      }
+      if(highlightPdfMatches.__token !== token) return;
+      await finalize();
+    }catch(e){
+      console.warn('搜索文本层准备失败：', e);
+      if(highlightPdfMatches.__token === token){
+        try{ await finalize(); }catch(e2){ console.warn('搜索失败：', e2); done(); }
+      }
+    }
+  })();
 }
 
 /* 在单页里查找并按"短语"作为一次匹配注册 */
@@ -10478,7 +10711,7 @@ function processPageForSearch(pageEl, groupMatchers){
 
   // ★ 通配符 * / ?：PDF 按“页”判断（页首/页尾没有字符）
   const wildcardFilteredMatches = allMatches.filter(m =>
-    wildcardOccurrenceOk(m, fullNorm, m.start, m.end)
+    wildcardOccurrenceOk(m, fullNorm, m.start, m.end, fullRaw, normMapGlobal)
   );
 
   // 去重：同一位置可能被 cl2 / cl₂ 等多个变体命中
@@ -10629,7 +10862,7 @@ function processTxtDocForSearch(txtDoc, groupMatchers){
     const d = lineData[li];
     const localStart = m.start - d.startInFull;
     const localEnd = m.end - d.startInFull;
-    return wildcardOccurrenceOk(m, d.norm, localStart, localEnd);
+    return wildcardOccurrenceOk(m, d.norm, localStart, localEnd, d.raw, d.normToRaw);
   });
 
   // 去重：同一位置可能被 cl2 / cl₂ 等多个变体命中
@@ -10920,16 +11153,23 @@ function handleNav(dir){
   if(draftHasChanges()){
     pendingSearchAnchor = captureVisiblePageAnchor();
     commitDraft();
-    // 提交完后：从提交前所在页开始（第 5 页搜索就从第 5 页往下）
-    if(matchCards.length > 0){
-      let idx = findSearchStartIndex(dir);
-      if(idx < 0) idx = dir > 0 ? 0 : matchCards.length - 1;
-      matchIndex = idx;
-      highlightCard();
-      const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
-      if(bn) saveBookPosition(bn);
-    }
-    pendingSearchAnchor = null;
+    // 搜索是分批异步完成的：等真正算完再跳，避免“第一次按回车没反应”
+    afterSearchSettled(()=>{
+      // 提交完后：从提交前所在页开始（第 5 页搜索就从第 5 页往下）
+      if(matchCards.length > 0){
+        let idx = findSearchStartIndex(dir);
+        if(idx < 0) idx = dir > 0 ? 0 : matchCards.length - 1;
+        matchIndex = idx;
+        highlightCard();
+        const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
+        if(bn) saveBookPosition(bn);
+      }
+      pendingSearchAnchor = null;
+    });
+    return;
+  }
+  if(searchRunning){
+    afterSearchSettled(()=>jumpByMatch(dir));
     return;
   }
   jumpByMatch(dir);
@@ -10940,13 +11180,19 @@ function handlePageNav(dir){
   if(draftHasChanges()){
     pendingSearchAnchor = captureVisiblePageAnchor();
     commitDraft();
-    if(matchCards.length > 0){
-      // 提交后从提交前所在页的下一页/上一页开始
-      jumpByPage(dir);
-      const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
-      if(bn) saveBookPosition(bn);
-    }
-    pendingSearchAnchor = null;
+    afterSearchSettled(()=>{
+      if(matchCards.length > 0){
+        // 提交后从提交前所在页的下一页/上一页开始
+        jumpByPage(dir);
+        const bn = currentBooks.size === 1 ? [...currentBooks][0] : '';
+        if(bn) saveBookPosition(bn);
+      }
+      pendingSearchAnchor = null;
+    });
+    return;
+  }
+  if(searchRunning){
+    afterSearchSettled(()=>jumpByPage(dir));
     return;
   }
   jumpByPage(dir);
@@ -11637,7 +11883,8 @@ function getSubjectOfKey(key){
       };
     }
 
-    // PDF：记录每页文字层 HTML + 尺寸；pdfIndex 对应 bookPdfIds 中的顺序
+    // PDF：记录每页文字索引 + 尺寸；pdfIndex 对应 bookPdfIds 中的顺序
+    // 不再保存整页 textHtml（几百页会有数 MB），恢复后按需从 PDF 懒建文本层
     const ids = [...(bookPdfIds.get(bookName) || [])];
     return {
       kind: 'pdf',
@@ -11651,7 +11898,7 @@ function getSubjectOfKey(key){
           width: el.style.width,
           height: el.style.height,
           text: el.dataset.normText || '',
-          textHtml: tl ? tl.innerHTML : '',
+          raw: el.__rawText || (tl ? (tl.textContent || '') : ''),
           pdfIndex: idx
         };
       })
@@ -11706,6 +11953,7 @@ function getSubjectOfKey(key){
         doc.dataset.book = bookName;
         doc.dataset.kind = pg.kind || 'text';
         doc.dataset.pageNum = pg.pageNum || '';
+        doc.style.containIntrinsicSize = 'auto ' + Math.max(160, (pg.lines || []).length * 28 + 40) + 'px';
         if(snapshot.pages.length > 1) doc.style.position = 'relative';
         (pg.lines || []).forEach(line=>{
           const div = document.createElement('div');
@@ -11761,6 +12009,10 @@ function getSubjectOfKey(key){
           pageDiv.dataset.rendered = '';
           pageDiv.style.width = pg.width || '';
           pageDiv.style.height = pg.height || '';
+          if(pg.width && pg.height){
+            pageDiv.style.containIntrinsicSize =
+              Math.round(parseFloat(pg.width)) + 'px ' + Math.round(parseFloat(pg.height)) + 'px';
+          }
           const canvas = document.createElement('canvas');
           canvas.width = 1; canvas.height = 1;
           canvas.style.width = pg.width || '';
@@ -11772,10 +12024,12 @@ function getSubjectOfKey(key){
           textLayer.style.width = pg.width || '';
           textLayer.style.height = pg.height || '';
           if(pg.scale) textLayer.style.setProperty('--scale-factor', pg.scale);
-          textLayer.innerHTML = pg.textHtml || '';
           pageDiv.appendChild(textLayer);
+          // 文本层延迟创建：页面接近视口或搜索时才建 span
+          pageDiv.dataset.textReady = '';
+          if(pg.textHtml) pageDiv._pendingTextHtml = pg.textHtml;
           pageDiv.dataset.normText = pg.text || '';
-          textLayer.querySelectorAll('span').forEach(s => searchSpans.push(s));
+          pageDiv.__rawText = pg.raw || '';
           pdfList.appendChild(pageDiv);
         });
       });
@@ -11859,6 +12113,12 @@ function getSubjectOfKey(key){
     }
 
     let lastErr = null;
+    let snapBytes = 0;
+    if(snapshot && Array.isArray(snapshot.pages)){
+      snapshot.pages.forEach(pg=>{
+        snapBytes += (pg.raw || '').length + (pg.text || '').length + 96;
+      });
+    }
     for(const a of attempts){
       try{
         const rec = {bookName, files: a.files};
@@ -11868,7 +12128,10 @@ function getSubjectOfKey(key){
           try{ navigator.storage.persist(); }catch(e){}
         }
         const onlyHandles = (a.files === handlesOnly);
-        toast('已锁定「' + bookName + '」，下次打开' + (onlyHandles ? '可能需要重新授权' : '会自动加载'));
+        const sizeMB = (snapBytes + recordFiles.reduce((n,f)=>n + (f.blob ? (f.blob.size||0) : 0), 0)) / 1048576;
+        toast('已锁定「' + bookName + '」' +
+          (onlyHandles ? '（仅记录文件句柄，下次可能需要重新授权）' : '（站点数据约 ' + sizeMB.toFixed(1) + ' MB，清理普通缓存不会丢失）'),
+          3400);
         return true;
       }catch(err){
         lastErr = err;
@@ -11926,6 +12189,8 @@ function getSubjectOfKey(key){
     const byName = new Map(records.map(r=>[r.bookName, r]));
     let failed = 0;
     let restored = 0;
+    let viaSnapshot = 0;
+    let viaReimport = 0;
 
     for(const meta of [...lockedBooks.values()]){
       const rec = byName.get(meta.bookName);
@@ -11936,6 +12201,8 @@ function getSubjectOfKey(key){
         try{
           if(restoreBookFromSnapshot(meta.bookName, rec.snapshot, rec.files || [])){
             importedAny = true;
+            viaSnapshot++;
+            console.info('[可搜] 已从缓存恢复锁定教材：', meta.bookName, '页面', rec.snapshot.pages.length);
           }
         }catch(e){
           console.warn('快照恢复失败，回退重新导入：', e);
@@ -11987,6 +12254,7 @@ function getSubjectOfKey(key){
             const gotName = await handleImport(file, handle, {restoring:true});
             if(gotName){
               importedAny = true;
+              viaReimport++;
               if(gotName !== meta.bookName){
                 const oldName = meta.bookName;
                 const migrated = Object.assign({}, meta, {bookName: gotName});
@@ -12009,9 +12277,13 @@ function getSubjectOfKey(key){
 
     restoringLocks = false;
     if(failed){
-      toast('有 ' + failed + ' 个锁定教材未能自动恢复，请重新导入', 4500);
+      toast('有 ' + failed + ' 个锁定教材未能自动恢复。请用同一地址打开（如 http://localhost:8765/可搜.html），不同端口会看不到原来的锁定缓存', 6500);
     } else if(restored){
-      toast('已自动恢复 ' + restored + ' 个锁定教材', 2400);
+      if(viaReimport === 0){
+        toast('已从浏览器缓存恢复 ' + restored + ' 个锁定教材（未重新解析）', 2800);
+      } else {
+        toast('已恢复 ' + restored + ' 个锁定教材，其中 ' + viaReimport + ' 个因缓存不完整而重新载入', 4200);
+      }
     }
     try{ buildChips(); }catch(e){}
     try{ updateFileStatus(); }catch(e){}
@@ -12606,6 +12878,8 @@ document.addEventListener('touchcancel', ()=>{
 	    pageDiv.dataset.rendered = '';
 	    pageDiv.style.width = viewport.width + 'px';
 	    pageDiv.style.height = viewport.height + 'px';
+	    pageDiv.style.containIntrinsicSize =
+	      Math.round(viewport.width) + 'px ' + Math.round(viewport.height) + 'px';
 
 	    const canvas = document.createElement('canvas');
 	    canvas.width = 1; canvas.height = 1;
@@ -12628,29 +12902,21 @@ document.addEventListener('touchcancel', ()=>{
 		const tc = await page.getTextContent();
 
 		// ★ 清理 LaTeX 化学式：$Na_{2}O_{2}$ → Na₂O₂
+		// 同时只建立“纯文本索引”，文本层（span）延迟到页面接近视口时再建
+		let rawText = '';
+		let pageText = '';
 		if(tc && tc.items){
 		  for(const it of tc.items){
 		    if(it && typeof it.str === 'string'){
 		      it.str = cleanLatex(it.str);
+		      rawText += it.str;
+		      pageText += normalizeForMatch(it.str);
 		    }
 		  }
 		}
-
-		// 使用 DocumentFragment 批量构建，减少 DOM 重排
-		await pdfjsLib.renderTextLayer({
-		  textContentSource: tc,
-		  container: textLayer,
-		  viewport: viewport,
-		  textDivs: []
-		}).promise;
-
-	    // 一次遍历完成 span 收集 + 文本索引构建
-	    let pageText = '';
-	    textLayer.querySelectorAll('span').forEach(s => {
-	      searchSpans.push(s);
-	      pageText += normalizeForMatch(s.textContent || '');
-	    });
 	    pageDiv.dataset.normText = pageText;
+	    pageDiv.__rawText = rawText;
+	    pageDiv.dataset.textReady = '';
 
 	    pageDiv._ready = true;
 	    pageOrder._results = pageOrder._results || {};
@@ -12716,6 +12982,7 @@ document.addEventListener('touchcancel', ()=>{
       doc.dataset.book = bookName;
       doc.dataset.kind = options.kind || 'text';
       doc.dataset.pageNum = pi + 1;
+      doc.style.containIntrinsicSize = 'auto ' + Math.max(160, chunk.length * 28 + 40) + 'px';
       if(chunks.length > 1) doc.style.position = 'relative';
 
       chunk.forEach(line => {
